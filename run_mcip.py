@@ -10,7 +10,6 @@ Python script to run mcip
 """
 
 import os
-import subprocess
 import itertools
 from os.path import join
 
@@ -20,9 +19,8 @@ from datetime import datetime as _dt
 from datetime import timedelta as _td
 from datetime import timezone as _tz
 
-from _helper_functions_ import _create_argparser_
-
 from settings import setting as s
+from _helper_functions_ import _create_argparser_
 
 proj = s.get_active_project()
 
@@ -38,12 +36,22 @@ dir_in_met_fmt = join(dir_proj, 'wrf/{}')
 
 
 def get_script(year, month, day, dom, proj_name, region, dir_in_met,
-               dir_in_geo, dir_out, dir_prog, in_met_files, compiler='gcc'):
-    fmt = '%Y-%m-%d'
-    date_str = '{}-{}-{}'.format(year, month, day)
-    day_after = _dt.strptime(date_str, fmt).replace(tzinfo=_tz.utc)
-    day_after = day_after + _td(days=1)
-    day_after = day_after.strftime(fmt)
+               dir_in_geo, dir_out, dir_prog, in_met_files, monthly=False,
+               compiler='gcc'):
+    fmt = '%Y-%m-%d-%H:%M:%S'
+    if monthly:
+        day = 1
+        next_day = calendar.monthrange(year, month)[1]
+        date_str = '{}-{}-{}-00:00:00'.format(year, month, day)
+        day_after = _dt.strptime(date_str, fmt).replace(tzinfo=_tz.utc)
+        day_after = day_after + _td(next_day) - _td(hours=1)
+        day_after = day_after.strftime(fmt)
+    else:
+        next_day = 1
+        date_str = '{}-{}-{}-00:00:00'.format(year, month, day)
+        day_after = _dt.strptime(date_str, fmt).replace(tzinfo=_tz.utc)
+        day_after = day_after + _td(days=1)
+        day_after = day_after.strftime(fmt)
     script = """
 source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh {}
 
@@ -79,7 +87,7 @@ set LWOUT   = 0
 set LUVBOUT = 1
 
 set MCIP_START=${{year}}-${{month}}-${{day}}-00:00:00.0000
-set MCIP_END={}-00:00:00.0000
+set MCIP_END={}.0000
 
 set INTVL      = 60
 
@@ -303,7 +311,7 @@ def get_days(year, month, day=list(range(1, 32))):
     return days
 
 
-def create_InMetFiles(days, dom_num):
+def create_InMetFiles(days):
     """ Create input meteorology file paths """
     fmt = wrfout_fmt + ' \\'
     list_of_files = [fmt.format(d) for d in days]
@@ -320,6 +328,8 @@ if __name__ == "__main__":
     p = _create_argparser_(DESCRIPTION, EPILOG)
     p.add_argument('-n', '--domain', help="domain Id(s)", nargs='+',
                    type=int, default=[d.id for d in proj.doms])
+    p.add_argument('--monthly', action='store_true',
+                   help='foo the bars before frobbling')
     p.add_argument('-y', '--years', nargs='+', type=int, default=proj.years)
     p.add_argument('-m', '--months', nargs='+', type=int, default=proj.months)
     p.add_argument('-d', '--days', nargs='+', type=int, default=proj.days)
@@ -328,12 +338,14 @@ if __name__ == "__main__":
     verbose = a.print
     year, month, day = a.years, a.months, a.days
     doms = [proj.doms[i - 1] for i in a.domain]
+    if a.monthly:
+        day = 1
     ym = expandgrid(year, month)  # Year and months
 
     log_dir = os.path.join(dir_proj, 'logs', 'mcip')
     os.makedirs(log_dir, exist_ok=True)
 
-    import tempfile
+    import tempfile as tf
     import subprocess as subp
     for dom in doms:
         if verbose:
@@ -342,25 +354,35 @@ if __name__ == "__main__":
             if verbose:
                 print('Processing Year: {}, Month: {}'.format(y, m))
             days = get_days(y, m, day)
-            in_met_files = create_InMetFiles(days, dom.id)
+
+            if a.monthly:
+                days_tmp = get_days(y, m, list(range(1, 32)))
+                in_met_files = create_InMetFiles(days_tmp)
+            else:
+                in_met_files = create_InMetFiles(days)
 
             mn = calendar.month_name[m].lower()
             dir_out = dir_out_fmt.format(dom.size, dom.name, mn)
+            if a.monthly:
+                dir_out += '_monthly'
             os.makedirs(dir_out, exist_ok=True)
             if verbose:
                 print('Output Dir: {}'.format(dir_out))
             dir_in_met = dir_in_met_fmt.format(mn)
 
             for d in days:
-                tmp_name = next(tempfile._get_candidate_names())
+                # subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
+                # pylint: disable=W0212
+                tmp_name = next(tf._get_candidate_names())
                 fmt = 'mcip_{}_{:04d}_{:02d}_{:02d}'.format(dom.name, y, m, d)
                 file_script = '{}_{}.csh'.format(fmt, tmp_name)
-                file_script = os.path.join(tempfile.gettempdir(), file_script)
+                file_script = os.path.join(tf.gettempdir(), file_script)
                 file_log = os.path.join(log_dir, '{}.log'.format(fmt))
                 file_err = os.path.join(log_dir, '{}.err'.format(fmt))
                 script = get_script(y, m, d, dom, proj.name, dom.name,
                                     dir_in_met, dir_in_geo, dir_out,
-                                    dir_prog, in_met_files, proj.compiler)
+                                    dir_prog, in_met_files, a.monthly,
+                                    proj.compiler)
                 with open(file_script, 'w') as f:
                     f.write("#!/bin/csh -f\n")
                     f.write(script)
