@@ -11,6 +11,7 @@ Python script to run mcip
 
 import os
 import itertools
+import logging
 from os.path import join
 
 import calendar
@@ -23,6 +24,20 @@ from settings import setting as s
 from _helper_functions_ import _create_argparser_
 
 proj = s.get_active_project()
+logging_dir = os.path.join(os.path.expanduser("~"), '.config/cwf')
+os.makedirs(logging_dir, exist_ok=True)
+
+# ----------------------------------
+log = logging.getLogger('mcip')
+log.setLevel(logging.DEBUG)
+# create formatter
+fmt_str = '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s'
+formatter = logging.Formatter(fmt_str, datefmt='%Y-%m-%dT%H:%M:%S')
+# create file handler
+fh = logging.FileHandler(os.path.join(logging_dir, 'cwf.log'))
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(formatter)
+log.addHandler(fh)
 
 # ----------------------------------
 
@@ -44,14 +59,18 @@ def get_script(year, month, day, dom, proj_name, region, dir_in_met,
         next_day = calendar.monthrange(year, month)[1]
         date_str = '{}-{}-{}-00:00:00'.format(year, month, day)
         day_after = _dt.strptime(date_str, fmt).replace(tzinfo=_tz.utc)
-        day_after = day_after + _td(next_day) - _td(hours=1)
+        day_after = day_after + _td(days=next_day) - _td(hours=1)
         day_after = day_after.strftime(fmt)
+        mcip_start = '{:04d}-{:02d}-{:02d}-01:00:00'.format(year, month, day)
+        mcip_end = day_after
     else:
         next_day = 1
         date_str = '{}-{}-{}-00:00:00'.format(year, month, day)
         day_after = _dt.strptime(date_str, fmt).replace(tzinfo=_tz.utc)
         day_after = day_after + _td(days=1)
         day_after = day_after.strftime(fmt)
+        mcip_start = '{:04d}-{:02d}-{:02d}-00:00:00'.format(year, month, day)
+        mcip_end = day_after
     script = """
 source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh {}
 
@@ -86,7 +105,7 @@ set LPV     = 0
 set LWOUT   = 0
 set LUVBOUT = 1
 
-set MCIP_START=${{year}}-${{month}}-${{day}}-00:00:00.0000
+set MCIP_START={}.0000
 set MCIP_END={}.0000
 
 set INTVL      = 60
@@ -278,7 +297,7 @@ else
   exit 1
 endif""".format(compiler, year, month, day, dom.size, dom.name, dom.id,
                 proj_name, region, dir_in_met, dir_in_geo, dir_out, dir_prog,
-                in_met_files, day_after, dom.ncol, dom.nrow)
+                in_met_files, mcip_start, mcip_end, dom.ncol, dom.nrow)
     return script
 
 
@@ -336,10 +355,17 @@ if __name__ == "__main__":
     a = p.parse_args()
 
     verbose = a.print
+    if verbose:
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        ch.setFormatter(formatter)
+        log.addHandler(ch)
+
     year, month, day = a.years, a.months, a.days
     doms = [proj.doms[i - 1] for i in a.domain]
+    run_name = 'monthly' if a.monthly else 'daily'
     if a.monthly:
-        day = 1
+        day = [1]
     ym = expandgrid(year, month)  # Year and months
 
     log_dir = os.path.join(dir_proj, 'logs', 'mcip')
@@ -348,11 +374,10 @@ if __name__ == "__main__":
     import tempfile as tf
     import subprocess as subp
     for dom in doms:
-        if verbose:
-            print('Creating mcip files for domain: {}'.format(dom.name))
+        log.info('Creating {} mcip files for domain: {}'.format(run_name,
+                                                                dom.name))
         for y, m in ym:
-            if verbose:
-                print('Processing Year: {}, Month: {}'.format(y, m))
+            log.info('Processing Year: {}, Month: {}'.format(y, m))
             days = get_days(y, m, day)
 
             if a.monthly:
@@ -366,15 +391,20 @@ if __name__ == "__main__":
             if a.monthly:
                 dir_out += '_monthly'
             os.makedirs(dir_out, exist_ok=True)
-            if verbose:
-                print('Output Dir: {}'.format(dir_out))
+            log.info('Output Dir: {}'.format(dir_out))
             dir_in_met = dir_in_met_fmt.format(mn)
 
             for d in days:
+                if a. monthly:
+                    str_date = '{:04d}-{:02d}'.format(y, m)
+                    log.info('Processing month: {}'.format(str_date))
+                else:
+                    str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
+                    log.info('Processing day: {}'.format(str_date))
                 # subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
                 # pylint: disable=W0212
                 tmp_name = next(tf._get_candidate_names())
-                fmt = 'mcip_{}_{:04d}_{:02d}_{:02d}'.format(dom.name, y, m, d)
+                fmt = 'mcip_{}_{}'.format(dom.name, str_date)
                 file_script = '{}_{}.csh'.format(fmt, tmp_name)
                 file_script = os.path.join(tf.gettempdir(), file_script)
                 file_log = os.path.join(log_dir, '{}.log'.format(fmt))
@@ -393,4 +423,4 @@ if __name__ == "__main__":
                         subp.call([file_script], stdout=fl, stderr=fe)
 
                 os.remove(file_script)
-            subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
+            # subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
