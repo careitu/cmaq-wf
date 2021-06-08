@@ -395,11 +395,8 @@ if __name__ == "__main__":
             dir_in_met = dir_in_met_fmt.format(mn)
 
             for d in days:
-                if a. monthly:
-                    str_date = '{:04d}-{:02d}'.format(y, m)
-                    log.info('Processing month: {}'.format(str_date))
-                else:
-                    str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
+                str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
+                if not a. monthly:
                     log.info('Processing day: {}'.format(str_date))
                 # subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
                 # pylint: disable=W0212
