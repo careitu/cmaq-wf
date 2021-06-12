@@ -8,12 +8,13 @@ Create/get CMAQ-WF settings
 """
 import os
 import json
+import warnings
 from json import JSONEncoder
 from pathlib import Path
 from _helper_functions_ import _create_argparser_
 
 __setting_file__ = os.path.join(str(Path.home()),
-                                '.config', 'cmaq-wf', 'cmaq-wf.json')
+                                '.config', 'cwf', 'cwf.json')
 
 
 class _Singleton(type):
@@ -27,13 +28,23 @@ class _Singleton(type):
 
 
 class Domain:
-    def __init__(self, id, name, size, ncol, nrow):
+    def __init__(self, id, name, size, ncol, nrow, parent=None, sub_doms=None):
         self.id = id
-        self.type = "Domain"
+        self.type = 'Domain'
         self.name = name
         self.size = size
         self.ncol = ncol
         self.nrow = nrow
+        if isinstance(parent, Domain):
+            self.__parent__ = parent
+            self.parent_id = parent.id
+        elif isinstance(parent, int):
+            self.__parent__ = None
+            self.parent_id = parent
+        else:
+            self.__parent__ = None
+            self.parent_id = None
+        self.doms = {} if sub_doms is None else sub_doms
 
     def __repr__(self):
         s = 'Domain:\n'
@@ -41,20 +52,43 @@ class Domain:
         s += '  Name: {}\n'.format(self.name)
         s += '  Size: {}\n'.format(self.size)
         s += '  ncol: {}\n'.format(self.ncol)
-        s += '  nrow: {}'.format(self.nrow)
+        s += '  nrow: {}\n'.format(self.nrow)
+        if len(self.doms) > 0:
+            s += '  Sub-Domains:\n'
+            for k, v in self.doms.items():
+                s += '    {}- {}\n'.format(v.id, k)
         return s
+
+    def get_dom_by_id(self, id):
+        dom = None
+        if self.id == id:
+            dom = self
+        if dom is None and len(self.doms) > 0:
+            for v in self.doms.values():
+                dom = v.get_dom_by_id(id)
+                if dom is not None:
+                    break
+        return dom
+
+    def append(self, name, size, ncol, nrow):
+        ln = len(self.doms) + 1
+        dom = Domain(int(f"{self.id}{ln}"), name, size, ncol, nrow,
+                     parent=self)
+        self.doms[name] = dom
+        return dom
 
     @classmethod
     def fromDict(cls, dic):
         return cls(dic['id'], dic['name'], dic['size'],
-                   dic['ncol'], dic['nrow'])
+                   dic['ncol'], dic['nrow'], dic['parent_id'],
+                   dic['doms'])
 
 
 class Project:
     def __init__(self, id, name, compiler, path, path_cmaq_exe,
-                 years, months, days, active=False, doms=[]):
+                 years, months, days, active=False, doms=None):
         self.id = id
-        self.type = "Project"
+        self.type = 'Project'
         self.active = active
         self.name = name
         self.compiler = compiler
@@ -64,73 +98,98 @@ class Project:
         self.months = months
         self.days = days
         self.doms = doms
+        self.doms = {} if doms is None else doms
 
     def __repr__(self):
         s = 'Name: {}\n'.format(self.name)
         s += 'Domains:\n'
-        for i, d in enumerate(self.doms):
-            s += '  {}- {}\n'.format(i, d.name)
+        for k, v in self.doms.items():
+            s += '  {}- {}\n'.format(v.id, k)
         return s
 
     @classmethod
     def fromDict(cls, dic):
         return cls(dic['id'], dic['name'], dic['compiler'],
-                   dic['path'], dic['path_cmaq_exe'], dic['years'], dic['months'],
-                   dic['days'], dic['active'], dic['doms'])
+                   dic['path'], dic['path_cmaq_exe'], dic['years'],
+                   dic['months'], dic['days'], dic['active'], dic['doms'])
 
-    def dom_create(self, name, size, ncol, nrow):
-        ln = len(self.doms) + 1
-        dom = Domain(ln, name, size, ncol, nrow)
-        self.doms.append(dom)
+    def get_dom_by_id(self, id):
+        dom = None
+        if dom is None and len(self.doms) > 0:
+            for v in self.doms.values():
+                dom = v.get_dom_by_id(id)
+                if dom is not None:
+                    break
         return dom
 
-    def dom_delete(self, id):
+    def append(self, name, size, ncol, nrow):
+        ln = len(self.doms) + 1
+        dom = Domain(ln, name, size, ncol, nrow)
+        self.doms[name] = dom
+        return dom
+
+    def delete_dom(self, id):
         del self.doms[id]
 
 
 class SettingEncoder(JSONEncoder):
     def default(self, o):
-        return o.__dict__
+        dic = {k: v for k, v in o.__dict__.items() if not k.startswith('__')}
+        return dic
 
 
 class Setting(metaclass=_Singleton):
-    def __init__(self, projects=[]):
-        self.type = "Setting"
+    def __init__(self, projects={}):
+        self.type = 'Setting'
         self.projects = projects
 
     def __repr__(self):
         s = ''
-        for i, p in enumerate(self.projects):
-            s += '{}- {}{}\n'.format(i, p.name,
-                                     ' (active)' if p.active else '')
+        for k, v in self.projects.items():
+            s += '{}- {}{}\n'.format(v.id, k,
+                                     ' (active)' if v.active else '')
         return s
 
     @classmethod
     def defaults(cls):
         set = cls()
-        set.projects = []
-        proj = set.project_create(
+        proj = set.create_proj(
             'cityair', 'gcc', '/mnt/disk3/projects', '/mnt/ssd2/APPS/CMAQ/',
             [2015], [1, 2, 3], list(range(1, 32)))
         proj.active = True
-        proj.dom_create('eu', 36, 124, 90)
-        proj.dom_create('tr', 12, 172, 94)
-        proj.dom_create('aegean', 4, 103, 94)
-        proj.dom_create('mediterranean', 4, 136, 97)
-        proj.dom_create('central_blacksea', 4, 172, 115)
-        proj.dom_create('south_central_anatolia', 4, 124, 100)
+        eu = proj.append('eu', 36, 124, 90)
+        tr = eu.append('tr', 12, 172, 90)
+        tr.append('aegean', 4, 103, 94)
+        tr.append('mediterranean', 4, 136, 97)
+        tr.append('central_blacksea', 4, 172, 115)
+        tr.append('south_central_anatolia', 4, 124, 100)
         return set
 
-    def project_create(self, name, compiler, path, path_cmaq, years, months,
-                       days):
+    def create_proj(self, name, compiler, path, path_cmaq, years, months,
+                    days):
         ln = len(self.projects) + 1
         proj = Project(ln, name, compiler, path, path_cmaq, years, months,
                        days)
-        self.projects.append(proj)
+        self.projects[name] = proj
         return proj
 
-    def get_active_project(self):
-        return [p for p in self.projects if p.active][0]
+    def get_active_proj(self, warn=True):
+        keys = list(self.projects.keys())
+        projs = {k: v for k, v in self.projects.items() if v.active}
+        if warn:
+            if len(projs) > 1:
+                msg = "You have multiple active projects. Returning first."
+                warnings.warn(msg)
+        if len(projs) == 0:
+            warnings.warn("You don't have any project")
+        return projs[keys[0]]
+
+    @staticmethod
+    def set_parents(dom):
+        for k, v in dom.doms.items():
+            v.__parent__ = dom
+            if len(v.doms) > 0:
+                Setting.set_parents(v)
 
     @classmethod
     def load_from_file(cls, file=__setting_file__):
@@ -139,10 +198,16 @@ class Setting(metaclass=_Singleton):
                 obj = json.load(f, object_hook=cls._Decoder_)
         except FileNotFoundError:
             obj = Setting()
-        projs = [p for p in obj.projects if p.active]
+        projs = {k: v for k, v in obj.projects.items() if v.active}
         if len(projs) > 1:
-            for i in range(1, len(projs)):
-                projs[i].active = False
+            keys = list(projs.keys())
+            for i in range(1, len(keys)):
+                projs[keys[i]].active = False
+        # set parents
+        for k, v in obj.projects.items():
+            for k2, v2 in v.doms.items():
+                Setting.set_parents(v2)
+
         return obj
 
     @classmethod
@@ -151,15 +216,17 @@ class Setting(metaclass=_Singleton):
 
     @staticmethod
     def _Decoder_(dic):
-        t = dic['type']
-        del dic['type']
-        if t == 'Domain':
-            v = Domain.fromDict(dic)
-        elif t == 'Project':
-            v = Project.fromDict(dic)
-        elif t == 'Setting':
-            v = Setting.fromDict(dic)
-        return v
+        if 'type' in dic.keys():
+            t = dic['type']
+            del dic['type']
+            if t == 'Domain':
+                v = Domain.fromDict(dic)
+            elif t == 'Project':
+                v = Project.fromDict(dic)
+            elif t == 'Setting':
+                v = Setting.fromDict(dic)
+            return v
+        return dic
 
     def encode(self):
         return json.dumps(self, indent=2, cls=SettingEncoder)
@@ -170,10 +237,11 @@ class Setting(metaclass=_Singleton):
     def save(self, file=__setting_file__):
         dir = os.path.dirname(file)
         os.makedirs(dir, exist_ok=True)
-        projs = [p for p in self.projects if p.active]
+        projs = {k: v for k, v in self.projects.items() if v.active}
         if len(projs) > 1:
-            for i in range(1, len(projs)):
-                projs[i].active = False
+            keys = list(projs.keys())
+            for i in range(1, len(keys)):
+                projs[keys[i]].active = False
         with open(file, 'w') as f:
             json.dump(self, f, indent=2, cls=SettingEncoder)
 
