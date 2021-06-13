@@ -13,6 +13,7 @@ import os
 import itertools
 import logging
 from os.path import join
+from timeit import default_timer as timer
 
 import calendar
 from collections.abc import Iterable
@@ -23,7 +24,7 @@ from datetime import timezone as _tz
 from settings import setting as s
 from _helper_functions_ import _create_argparser_
 
-proj = s.get_active_project()
+proj = s.get_active_proj()
 logging_dir = os.path.join(os.path.expanduser("~"), '.config/cwf')
 os.makedirs(logging_dir, exist_ok=True)
 
@@ -42,7 +43,7 @@ log.addHandler(fh)
 # ----------------------------------
 
 dir_proj = join(proj.path, proj.name)
-dir_prog = join(proj.path_cmaq, 'PREP/mcip/src')
+dir_prog = join(proj.path_cmaq_exe, 'PREP/mcip/src')
 wrfout_fmt = '${{InMetDir}}' \
              '/wrfout_${{dom_num}}_${{year}}-${{month}}-{:02d}_00:00:00'
 dir_in_geo = join(dir_proj, 'WPS')
@@ -50,9 +51,8 @@ dir_out_fmt = join(dir_proj, 'mcip/{}km/{}/{}')
 dir_in_met_fmt = join(dir_proj, 'wrf/{}')
 
 
-def get_script(year, month, day, dom, proj_name, region, dir_in_met,
-               dir_in_geo, dir_out, dir_prog, in_met_files, monthly=False,
-               compiler='gcc'):
+def get_script(year, month, day, dom, proj_name, dir_in_met, dir_in_geo,
+               dir_out, dir_prog, in_met_files, monthly=False, compiler='gcc'):
     fmt = '%Y-%m-%d-%H:%M:%S'
     if monthly:
         day = 1
@@ -81,7 +81,6 @@ set dom_size = {}km
 set dom_name = {}
 set dom_num = d{:02d}
 set project_name = {}
-set region = {}
 
 set ymd        = ${{year}}${{month}}${{day}}
 set APPL       = ${{project_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
@@ -295,8 +294,8 @@ if ( $status == 0 ) then
 else
   echo "Error running $PROG"
   exit 1
-endif""".format(compiler, year, month, day, dom.size, dom.name, dom.id,
-                proj_name, region, dir_in_met, dir_in_geo, dir_out, dir_prog,
+endif""".format(compiler, year, month, day, dom.size, dom.name, dom.id2,
+                proj_name, dir_in_met, dir_in_geo, dir_out, dir_prog,
                 in_met_files, mcip_start, mcip_end, dom.ncol, dom.nrow)
     return script
 
@@ -338,15 +337,23 @@ def create_InMetFiles(days):
     return 'set InMetFiles = ( {})'.format(str_files)
 
 
+def del_files(dir, files):
+    import glob
+    files = os.path.join(dir, files)
+    for f in glob.glob(files):
+        os.remove(f)
+
+
 if __name__ == "__main__":
     DESCRIPTION = 'Run mcip script\n' + \
                   'Project: {}\nProject Dir: {}\nCMAQ Dir: {}'
-    DESCRIPTION = DESCRIPTION.format(proj.name, proj.path, proj.path_cmaq)
+    DESCRIPTION = DESCRIPTION.format(proj.name, proj.path, proj.path_cmaq_exe)
     EPILOG = 'Example of use:\n' + \
              ' %(prog)s -d \n'
     p = _create_argparser_(DESCRIPTION, EPILOG)
-    p.add_argument('-n', '--domain', help="domain Id(s)", nargs='+',
-                   type=int, default=[d.id for d in proj.doms])
+    p.add_argument('-n', '--domain', nargs='+', type=int,
+                   default=proj.get_dom_ids(),
+                   help="domain Id(s). Default is all domains in the project.")
     p.add_argument('--monthly', action='store_true',
                    help='foo the bars before frobbling')
     p.add_argument('-y', '--years', nargs='+', type=int, default=proj.years)
@@ -362,7 +369,7 @@ if __name__ == "__main__":
         log.addHandler(ch)
 
     year, month, day = a.years, a.months, a.days
-    doms = [proj.doms[i - 1] for i in a.domain]
+    doms = [proj.get_dom_by_id(i) for i in a.domain]
     run_name = 'monthly' if a.monthly else 'daily'
     if a.monthly:
         day = [1]
@@ -371,13 +378,17 @@ if __name__ == "__main__":
     log_dir = os.path.join(dir_proj, 'logs', 'mcip')
     os.makedirs(log_dir, exist_ok=True)
 
+    log.info('Creating {} mcip files'.format(run_name))
+    log.info('log dir: {}'.format(log_dir))
+
     import tempfile as tf
     import subprocess as subp
+    mcip_timer_start = timer()
     for dom in doms:
-        log.info('Creating {} mcip files for domain: {}'.format(run_name,
-                                                                dom.name))
+        dom_timer_start = timer()
+        log.info('Domain: {} ({})'.format(dom.name, dom.id))
         for y, m in ym:
-            log.info('Processing Year: {}, Month: {}'.format(y, m))
+            log.info('Processing Month {}-{:02d}'.format(y, m))
             days = get_days(y, m, day)
 
             if a.monthly:
@@ -394,11 +405,9 @@ if __name__ == "__main__":
             log.info('Output Dir: {}'.format(dir_out))
             dir_in_met = dir_in_met_fmt.format(mn)
 
+            month_timer_start = timer()
             for d in days:
                 str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
-                if not a. monthly:
-                    log.info('Processing day: {}'.format(str_date))
-                # subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
                 # pylint: disable=W0212
                 tmp_name = next(tf._get_candidate_names())
                 fmt = 'mcip_{}_{}'.format(dom.name, str_date)
@@ -406,10 +415,12 @@ if __name__ == "__main__":
                 file_script = os.path.join(tf.gettempdir(), file_script)
                 file_log = os.path.join(log_dir, '{}.log'.format(fmt))
                 file_err = os.path.join(log_dir, '{}.err'.format(fmt))
-                script = get_script(y, m, d, dom, proj.name, dom.name,
-                                    dir_in_met, dir_in_geo, dir_out,
-                                    dir_prog, in_met_files, a.monthly,
+                script = get_script(y, m, d, dom, proj.name, dir_in_met,
+                                    dir_in_geo, dir_out, dir_prog,
+                                    in_met_files, a.monthly,
                                     proj.compiler)
+
+                day_timer_start = timer()
                 with open(file_script, 'w') as f:
                     f.write("#!/bin/csh -f\n")
                     f.write(script)
@@ -420,4 +431,23 @@ if __name__ == "__main__":
                         subp.call([file_script], stdout=fl, stderr=fe)
 
                 os.remove(file_script)
-            # subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
+                day_timer_end = timer()
+
+                if not a.monthly:
+                    msg = 'Day: {} [Time: {:.2f} secs]'
+                    elapsed = day_timer_end - day_timer_start
+                    log.info(msg.format(str_date, elapsed))
+
+            del_files(dir_out, 'fort.*')
+
+            msg = 'Completed Month: {}-{:02d} in {:.2f} secs.'
+            elapsed = day_timer_end - month_timer_start
+            log.info(msg.format(y, m, elapsed))
+
+        msg = 'Completed domain {} in {:.2f} secs.'
+        elapsed = day_timer_end - dom_timer_start
+        log.info(msg.format(dom.name, elapsed))
+
+    msg = 'Completed mcip in {:.2f} secs.'
+    elapsed = day_timer_end - mcip_timer_start
+    log.info(msg.format(elapsed))
