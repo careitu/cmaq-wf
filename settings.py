@@ -28,27 +28,20 @@ class _Singleton(type):
 
 
 class Domain:
-    def __init__(self, id, name, size, ncol, nrow, parent=None, sub_doms=None):
+    def __init__(self, id, id2, name, size, ncol, nrow, sub_doms=None):
         self.id = id
+        self.id2 = id2
         self.type = 'Domain'
         self.name = name
         self.size = size
         self.ncol = ncol
         self.nrow = nrow
-        if isinstance(parent, Domain):
-            self.__parent__ = parent
-            self.parent_id = parent.id
-        elif isinstance(parent, int):
-            self.__parent__ = None
-            self.parent_id = parent
-        else:
-            self.__parent__ = None
-            self.parent_id = None
+        self.__parent__ = None
         self.doms = {} if sub_doms is None else sub_doms
 
     def __repr__(self):
         s = 'Domain:\n'
-        s += '  Id: {}\n'.format(self.id)
+        s += '  Id: {} ({})\n'.format(self.id, self.id2)
         s += '  Name: {}\n'.format(self.name)
         s += '  Size: {}\n'.format(self.size)
         s += '  ncol: {}\n'.format(self.ncol)
@@ -70,18 +63,24 @@ class Domain:
                     break
         return dom
 
-    def append(self, name, size, ncol, nrow):
+    def get_sub_ids(self):
+        ids = [self.id]
+        if len(self.doms) > 0:
+            for v in self.doms.values():
+                ids = ids + v.get_sub_ids()
+        return ids
+
+    def append(self, id2, name, size, ncol, nrow):
         ln = len(self.doms) + 1
-        dom = Domain(int(f"{self.id}{ln}"), name, size, ncol, nrow,
-                     parent=self)
+        dom = Domain(int(f"{self.id}{ln}"), id2, name, size, ncol, nrow)
+        dom.__parent__ = self
         self.doms[name] = dom
         return dom
 
     @classmethod
     def fromDict(cls, dic):
-        return cls(dic['id'], dic['name'], dic['size'],
-                   dic['ncol'], dic['nrow'], dic['parent_id'],
-                   dic['doms'])
+        return cls(dic['id'], dic['id2'], dic['name'], dic['size'],
+                   dic['ncol'], dic['nrow'], dic['doms'])
 
 
 class Project:
@@ -122,9 +121,15 @@ class Project:
                     break
         return dom
 
-    def append(self, name, size, ncol, nrow):
+    def get_dom_ids(self):
+        ids = []
+        for v in self.doms.values():
+            ids = ids + v.get_sub_ids()
+        return ids
+
+    def append(self, id2, name, size, ncol, nrow):
         ln = len(self.doms) + 1
-        dom = Domain(ln, name, size, ncol, nrow)
+        dom = Domain(ln, id2, name, size, ncol, nrow)
         self.doms[name] = dom
         return dom
 
@@ -157,12 +162,12 @@ class Setting(metaclass=_Singleton):
             'cityair', 'gcc', '/mnt/disk3/projects', '/mnt/ssd2/APPS/CMAQ/',
             [2015], [1, 2, 3], list(range(1, 32)))
         proj.active = True
-        eu = proj.append('eu', 36, 124, 90)
-        tr = eu.append('tr', 12, 172, 90)
-        tr.append('aegean', 4, 103, 94)
-        tr.append('mediterranean', 4, 136, 97)
-        tr.append('central_blacksea', 4, 172, 115)
-        tr.append('south_central_anatolia', 4, 124, 100)
+        eu = proj.append(1, 'eu', 36, 124, 90)
+        tr = eu.append(2, 'tr', 12, 172, 90)
+        tr.append(3, 'aegean', 4, 103, 94)
+        tr.append(4, 'mediterranean', 4, 136, 97)
+        tr.append(5, 'central_blacksea', 4, 172, 115)
+        tr.append(6, 'south_central_anatolia', 4, 124, 100)
         return set
 
     def create_proj(self, name, compiler, path, path_cmaq, years, months,
@@ -186,9 +191,9 @@ class Setting(metaclass=_Singleton):
 
     @staticmethod
     def set_parents(dom):
-        for k, v in dom.doms.items():
-            v.__parent__ = dom
-            if len(v.doms) > 0:
+        if len(dom.doms) > 0:
+            for k, v in dom.doms.items():
+                v.__parent__ = dom
                 Setting.set_parents(v)
 
     @classmethod
