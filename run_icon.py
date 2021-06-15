@@ -23,12 +23,12 @@ from datetime import timezone as _tz
 from settings import setting as s
 from _helper_functions_ import _create_argparser_
 
-proj = s.get_active_project()
+proj = s.get_active_proj()
 logging_dir = os.path.join(os.path.expanduser("~"), '.config/cwf')
 os.makedirs(logging_dir, exist_ok=True)
 
 # ----------------------------------
-log = logging.getLogger('mcip')
+log = logging.getLogger('icon')
 log.setLevel(logging.DEBUG)
 # create formatter
 fmt_str = '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s'
@@ -50,27 +50,9 @@ dir_out_fmt = join(dir_proj, 'mcip/{}km/{}/{}')
 dir_in_met_fmt = join(dir_proj, 'wrf/{}')
 
 
-def get_script(year, month, day, dom, proj_name, region, dir_in_met,
-               dir_in_geo, dir_out, dir_prog, in_met_files, monthly=False,
-               compiler='gcc'):
-    fmt = '%Y-%m-%d-%H:%M:%S'
-    if monthly:
-        day = 1
-        next_day = calendar.monthrange(year, month)[1]
-        date_str = '{}-{}-{}-00:00:00'.format(year, month, day)
-        day_after = _dt.strptime(date_str, fmt).replace(tzinfo=_tz.utc)
-        day_after = day_after + _td(days=next_day) - _td(hours=1)
-        day_after = day_after.strftime(fmt)
-        mcip_start = '{:04d}-{:02d}-{:02d}-01:00:00'.format(year, month, day)
-        mcip_end = day_after
-    else:
-        next_day = 1
-        date_str = '{}-{}-{}-00:00:00'.format(year, month, day)
-        day_after = _dt.strptime(date_str, fmt).replace(tzinfo=_tz.utc)
-        day_after = day_after + _td(days=1)
-        day_after = day_after.strftime(fmt)
-        mcip_start = '{:04d}-{:02d}-{:02d}-00:00:00'.format(year, month, day)
-        mcip_end = day_after
+def get_script(year, month, day, dom, proj_name, proj_path, compiler='gcc'):
+    dom_upper = dom.__parent__
+    mn = calendar.month_name[month].lower()
     script = """
 source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh {}
 
@@ -80,54 +62,58 @@ if ( ! -e $CMAQ_DATA ) then
 endif
 echo " "; echo " Input data path, CMAQ_DATA set to $CMAQ_DATA"; echo " "
 
-set year = {}
-set month = {:02d} # march
-set domainsize = {}km
-set domainsize_larger = {}km # one upper level domain size
+set year = {:04}
+set month = {:02d} # 03
+set month_name = {} # march
+set day = {:02}
+set dom_size = {}km
+set dom_size_upper = {}km # one upper level domain size
 set domain_num = d{:02d}
-set project_name = {}
-set region = {}
+set proj_name = {}
+set dom_name = {}
+
+set proj_path = {}
 set proj_mcip_path = ${{proj_path}}/mcip
-set proj_path = /mnt/ssd2/APPS/CMAQ/data/projects/CityAir
-set upper_dom_path = ${{proj_path}}/${domainsize_larger}
+set upper_dom_cctm_path = ${{proj_mcip_path}}/${{dom_size_upper}}
 
-set ymd      = ${{year}}${{month}}${{day}}
-set APPL     = ${{project_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
+set ym       = ${{year}}${{month}}${{day}}
+set APPL     = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{ym}}
+set APPL       = ${{project_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
 set VRSN     = v532
-set ICTYPE   = regrid
+set ICTYPE   = {}
 
-set BLD      = ${CMAQ_HOME}/PREP/icon/scripts/BLD_ICON_${VRSN}_${compiler}
-set EXEC     = ICON_${VRSN}.exe
-cat $BLD/ICON_${VRSN}.cfg; echo " "; set echo
+set BLD      = ${{CMAQ_HOME}}/PREP/icon/scripts/BLD_ICON_${{VRSN}}_${{compiler}}
+set EXEC     = ICON_${{VRSN}}.exe
+cat $BLD/ICON_${{VRSN}}.cfg; echo " "; set echo
 
-setenv GRID_NAME 4km
-setenv GRIDDESC  ${{proj_mcip_path}}/${domainsize}/${region}/${month}/GRIDDESC
+setenv GRID_NAME ${{dom_size}}
+setenv GRIDDESC  ${{proj_mcip_path}}/${{dom_size}}/${{dom_name}}/${{month_name}}/GRIDDESC
 setenv IOAPI_ISPH 20
 
 setenv IOAPI_LOG_WRITE F
 setenv IOAPI_OFFSET_64 YES
-setenv EXECUTION_ID $EXEC
+setenv EXECUTION_ID ${{EXEC}}
 
 setenv ICON_TYPE ` echo $ICTYPE | tr "[A-Z]" "[a-z]" `
 
 set OUTDIR   = ${{proj_path}}/icon
 
-set DATE = "2015-03-02"
-set YYYYJJJ  = `date -ud "${DATE}" +%Y%j`   #> Convert YYYY-MM-DD to YYYYJJJ
-set YYMMDD   = `date -ud "${DATE}" +%y%m%d` #> Convert YYYY-MM-DD to YYMMDD
-set YYYYMMDD = `date -ud "${DATE}" +%Y%m%d` #> Convert YYYY-MM-DD to YYYYMMDD
+set DATE = "${{year}}-${{month}}-${{day}}"
+set YYYYJJJ  = `date -ud "${{DATE}}" +%Y%j`   #> Convert YYYY-MM-DD to YYYYJJJ
+set YYMMDD   = `date -ud "${{DATE}}" +%y%m%d` #> Convert YYYY-MM-DD to YYMMDD
+set YYYYMMDD = `date -ud "${{DATE}}" +%Y%m%d` #> Convert YYYY-MM-DD to YYYYMMDD
 
 if ( $ICON_TYPE == regrid ) then
-    setenv CTM_CONC_1 ${{upper_dom_path}}/CCTM_CONC_v532_gcc_CityAir_2015_${domainsize_larger}_${YYYYMMDD}.nc
-    setenv MET_CRO_3D_CRS ${{proj_mcip_path}}/${domainsize_larger}/${month}/METCRO3D_CityAir_${domainsize_larger}_${YYYYMMDD}.nc
-    setenv MET_CRO_3D_FIN ${{proj_mcip_path}}/${domainsize}/${region}/${month}/METCRO3D_CityAir_${domainsize}_${YYYYMMDD}.nc
-    setenv INIT_CONC_1    "$OUTDIR/ICON_${VRSN}_${APPL}_${ICON_TYPE}_${YYYYMMDD} -v"
+    setenv CTM_CONC_1 ${{upper_dom_cctm_path}}/CCTM_CONC_v532_gcc_CityAir_2015_${{dom_size_upper}}_${{YYYYMMDD}}.nc
+    setenv MET_CRO_3D_CRS ${{proj_mcip_path}}/${{dom_size_upper}}/${{month}}/METCRO3D_CityAir_${{dom_size_upper}}_${{YYYYMMDD}}.nc
+    setenv MET_CRO_3D_FIN ${{proj_mcip_path}}/${{dom_size}}/${{dom_name}}/${{month}}/METCRO3D_CityAir_${{dom_size}}_${{YYYYMMDD}}.nc
+    setenv INIT_CONC_1    "$OUTDIR/ICON_${{VRSN}}_${{APPL}}_${{ICON_TYPE}}_${{YYYYMMDD}} -v"
 endif
 
 if ( $ICON_TYPE == profile ) then
     setenv IC_PROFILE $BLD/profiles/avprofile_cb6r3m_ae7_kmtbr_hemi2016_v53beta2_m3dry_col051_row068.csv
-    setenv MET_CRO_3D_FIN /ssd2/programs/cmaq/data/mcip/36km/March_2015/METCRO3D_cityair_march_2015_36km.nc
-    setenv INIT_CONC_1    "$OUTDIR/ICON_${VRSN}_${APPL}_${ICON_TYPE}_${YYYYMMDD} -v"
+    setenv MET_CRO_3D_FIN ${{proj_mcip_path}}/${{dom_size}}/${{dom_name}}/${{month_name}}/METCRO3D_${{APPL}}.nc
+    setenv INIT_CONC_1    "$OUTDIR/ICON_${{VRSN}}_${{APPL}}_${{ICON_TYPE}}_${{YYYYMMDD}} -v"
 endif
 
 if ( ! -d "$OUTDIR" ) mkdir -p $OUTDIR
@@ -138,9 +124,8 @@ limit
 
 time $BLD/$EXEC
 
-exit()""".format(compiler, year, month, day, dom.size, dom.name, dom.id,
-                 proj_name, region, dir_in_met, dir_in_geo, dir_out, dir_prog,
-                 in_met_files, mcip_start, mcip_end, dom.ncol, dom.nrow)
+exit()""".format(compiler, year, month, mn, day, dom.size, dom_upper.size,
+                 dom.id2, proj_name, dom.name, proj_path, 'profile')
     return script
 
 
