@@ -11,6 +11,8 @@ import json
 import warnings
 from json import JSONEncoder
 from pathlib import Path
+from copy import deepcopy as _dcp
+from os.path import join as _join
 from _helper_functions_ import _create_argparser_
 
 __setting_file__ = os.path.join(str(Path.home()),
@@ -83,21 +85,37 @@ class Domain:
                    dic['ncol'], dic['nrow'], dic['doms'])
 
 
+class Paths:
+    def __init__(self, **kwargs):
+        self.__dict__ = kwargs
+
+    def __repr__(self):
+        s = 'Paths:\n'
+        for k, v in self.__dict__.items():
+            s += '  {}: {}\n'.format(k, v)
+        return s
+
+    @classmethod
+    def fromDict(cls, dic):
+        return cls(**dic)
+
+
 class Project:
-    def __init__(self, id, name, compiler, path, path_cmaq_exe,
-                 years, months, days, active=False, doms=None):
+    def __init__(self, id, name, compiler, cmaq_ver, years, months, days,
+                 paths=None, active=False, doms=None):
         self.id = id
         self.type = 'Project'
         self.active = active
         self.name = name
         self.compiler = compiler
-        self.path = path
-        self.path_cmaq_exe = path_cmaq_exe
+        self.cmaq_ver = cmaq_ver
+        self.path = paths
         self.years = years
         self.months = months
         self.days = days
         self.doms = doms
         self.doms = {} if doms is None else doms
+        self.__setting__ = None
 
     def __repr__(self):
         s = 'Name: {}\n'.format(self.name)
@@ -108,9 +126,12 @@ class Project:
 
     @classmethod
     def fromDict(cls, dic):
-        return cls(dic['id'], dic['name'], dic['compiler'],
-                   dic['path'], dic['path_cmaq_exe'], dic['years'],
-                   dic['months'], dic['days'], dic['active'], dic['doms'])
+        return cls(dic['id'], dic['name'], dic['compiler'], dic['cmaq_ver'],
+                   dic['years'], dic['months'], dic['days'], dic['path'],
+                   dic['active'], dic['doms'])
+
+    def activate(self):
+        self.__setting__.activate(self.name)
 
     def get_dom_by_id(self, id):
         dom = None
@@ -144,9 +165,9 @@ class SettingEncoder(JSONEncoder):
 
 
 class Setting(metaclass=_Singleton):
-    def __init__(self, projects={}):
+    def __init__(self, projects=None):
         self.type = 'Setting'
-        self.projects = projects
+        self.projects = {} if projects is None else projects
 
     def __repr__(self):
         s = ''
@@ -158,25 +179,64 @@ class Setting(metaclass=_Singleton):
     @classmethod
     def defaults(cls):
         set = cls()
-        proj = set.create_proj(
-            'cityair', 'gcc', '/mnt/disk3/projects', '/mnt/ssd2/APPS/CMAQ/',
-            [2015], [1, 2, 3], list(range(1, 32)))
-        proj.active = True
+        set.projects = {}
+        proj_name = 'cityair'
+        dir_proj = _join('/mnt/disk3/projects/', proj_name)
+        dir_cmaq_app = '/mnt/ssd2/APPS/CMAQ'
+        proj = set.new_proj('cityair', 'gcc', '532', [2015], [1, 2, 3],
+                            list(range(1, 32)), active=True)
+        proj.path = Paths(proj=dir_proj,
+                          cmaq_app=dir_cmaq_app,
+                          wps=_join(dir_proj, 'WPS'),
+                          wrf=_join(dir_proj, 'WRF'),
+                          cctm=_join(dir_proj, 'cmaq'),
+                          mcip=_join(dir_proj, 'mcip'),
+                          icon=_join(dir_proj, 'icon'),
+                          bcon=_join(dir_proj, 'bcon'),
+                          emis=_join(dir_proj, 'emis'))
         eu = proj.append(1, 'eu', 36, 124, 90)
         tr = eu.append(2, 'tr', 12, 172, 90)
         tr.append(3, 'aegean', 4, 103, 94)
         tr.append(4, 'mediterranean', 4, 136, 97)
         tr.append(5, 'central_blacksea', 4, 172, 115)
         tr.append(6, 'south_central_anatolia', 4, 124, 100)
+        #
+        proj_name = 'test_cityair'
+        dir_proj = _join('/mnt/disk3/projects/', proj_name)
+        proj2 = _dcp(proj)
+        proj2.id = 2
+        proj2.name = 'test_cityair'
+        proj2.path = Paths(proj=dir_proj,
+                           cmaq_app=dir_cmaq_app,
+                           wps=_join(dir_proj, 'WPS'),
+                           wrf=_join(dir_proj, 'WRF'),
+                           cctm=_join(dir_proj, 'cmaq'),
+                           mcip=_join(dir_proj, 'mcip'),
+                           icon=_join(dir_proj, 'icon'),
+                           bcon=_join(dir_proj, 'bcon'),
+                           emis=_join(dir_proj, 'emis'))
+        set.projects[proj_name] = proj2
         return set
 
-    def create_proj(self, name, compiler, path, path_cmaq, years, months,
-                    days):
-        ln = len(self.projects) + 1
-        proj = Project(ln, name, compiler, path, path_cmaq, years, months,
-                       days)
-        self.projects[name] = proj
+    def append(self, proj):
+        proj.id = len(self.projects) + 1
+        self.projects[proj.name] = proj
+
+    def new_proj(self, name, compiler, cmaq_ver, years,
+                 months, days, paths=None, active=False, doms=None):
+        proj = Project(None, name, compiler, cmaq_ver, years, months, days,
+                       paths, active, doms)
+        proj.__setting__ = self
+        self.append(proj)
         return proj
+
+    def activate(self, proj_name):
+        keys = list(self.projects.keys())
+        if proj_name in keys:
+            for k, v in self.projects.items():
+                v.active = k == proj_name
+        else:
+            raise ValueError('{} is not a project name'.format(proj_name))
 
     def get_active_proj(self, warn=True):
         keys = list(self.projects.keys())
@@ -186,7 +246,7 @@ class Setting(metaclass=_Singleton):
                 msg = "You have multiple active projects. Returning first."
                 warnings.warn(msg)
         if len(projs) == 0:
-            warnings.warn("You don't have any project")
+            warnings.warn("You don't have any active project")
         return projs[keys[0]]
 
     @staticmethod
@@ -203,6 +263,10 @@ class Setting(metaclass=_Singleton):
                 obj = json.load(f, object_hook=cls._Decoder_)
         except FileNotFoundError:
             obj = Setting()
+        except json.decoder.JSONDecodeError:
+            print('Settings cannot be loaded.')
+            obj = Setting()
+
         projs = {k: v for k, v in obj.projects.items() if v.active}
         if len(projs) > 1:
             keys = list(projs.keys())
@@ -262,12 +326,22 @@ if __name__ == "__main__":
              ' %(prog)s -d \n'
 
     p = _create_argparser_(DESCRIPTION, EPILOG)
-    p.add_argument('-d', '--default', help="create default settings file",
+    g = p.add_mutually_exclusive_group(required=False)
+    g.add_argument('-d', '--default', help="create default settings",
                    default=False, action="store_true")
+    g.add_argument('-a', '--activate', metavar='PROJECT_NAME',
+                   help="Activate a project")
     args = p.parse_args()
+
+    if args.activate is not None:
+        setting.activate(args.activate)
+        print('{} was activated'.format(args.activate))
+
     if args.default:
-        os.remove(__setting_file__)
+        if os.path.isfile(__setting_file__):
+            os.remove(__setting_file__)
         Setting.defaults().save()
         print('Default settings were saved at {}'.format(__setting_file__))
-    else:
+
+    if args.activate is None and not args.default:
         print(setting.encode())
