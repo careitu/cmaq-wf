@@ -6,17 +6,14 @@
 Create/get CMAQ-WF settings
 ~~~~~~~~
 """
-import os
-import json
-import warnings
-from json import JSONEncoder
-from pathlib import Path
-from copy import deepcopy as _dcp
-from os.path import join as _join
-from _helper_functions_ import _create_argparser_
+import os as _os
+import json as _json
+from warnings import warn as _warn
+from json import JSONEncoder as _je
+from pathlib import Path as _path
 
-__setting_file__ = os.path.join(str(Path.home()),
-                                '.config', 'cwf', 'cwf.json')
+__setting_file__ = _os.path.join(str(_path.home()),
+                                 '.config', 'cwf', 'cwf.json')
 
 
 class _Singleton(type):
@@ -159,7 +156,7 @@ class Project:
         del self.doms[id]
 
 
-class SettingEncoder(JSONEncoder):
+class SettingEncoder(_je):
     def default(self, o):
         dic = {k: v for k, v in o.__dict__.items() if not k.startswith('__')}
         return dic
@@ -179,6 +176,8 @@ class Setting(metaclass=_Singleton):
 
     @classmethod
     def defaults(cls):
+        from os.path import join as _join
+        from copy import deepcopy as _dcp
         set = cls()
         set.projects = {}
         proj_name = 'cityair'
@@ -247,7 +246,7 @@ class Setting(metaclass=_Singleton):
         if warn:
             if len(projs) > 1:
                 msg = "You have multiple active projects. Returning first."
-                warnings.warn(msg)
+                _warn(msg)
         if len(projs) == 0:
             raise ValueError("You don't have any active project")
         return projs[keys[0]]
@@ -263,10 +262,10 @@ class Setting(metaclass=_Singleton):
     def load_from_file(cls, file=__setting_file__):
         try:
             with open(file, 'r') as f:
-                obj = json.load(f, object_hook=cls._Decoder_)
+                obj = _json.load(f, object_hook=cls._Decoder_)
         except FileNotFoundError:
             obj = Setting()
-        except json.decoder.JSONDecodeError:
+        except _json.decoder.JSONDecodeError:
             print('Settings cannot be loaded.')
             obj = Setting()
 
@@ -303,21 +302,21 @@ class Setting(metaclass=_Singleton):
         return dic
 
     def encode(self):
-        return json.dumps(self, indent=2, cls=SettingEncoder)
+        return _json.dumps(self, indent=2, cls=SettingEncoder)
 
     def decode(self):
-        return json.loads(self.encode(), object_hook=self._Decoder_)
+        return _json.loads(self.encode(), object_hook=self._Decoder_)
 
     def save(self, file=__setting_file__):
-        dir = os.path.dirname(file)
-        os.makedirs(dir, exist_ok=True)
+        dir = _os.path.dirname(file)
+        _os.makedirs(dir, exist_ok=True)
         projs = {k: v for k, v in self.projects.items() if v.active}
         if len(projs) > 1:
             keys = list(projs.keys())
             for i in range(1, len(keys)):
                 projs[keys[i]].active = False
         with open(file, 'w') as f:
-            json.dump(self, f, indent=2, cls=SettingEncoder)
+            _json.dump(self, f, indent=2, cls=SettingEncoder)
 
     def load(self, file=__setting_file__):
         self = self.load_from_file(file)
@@ -326,6 +325,8 @@ class Setting(metaclass=_Singleton):
 setting = Setting.load_from_file()
 
 if __name__ == "__main__":
+    from _helper_functions_ import _create_argparser_
+
     DESCRIPTION = 'Save/load CMAQ Settings\n'
     EPILOG = 'Example of use:\n' + \
              ' %(prog)s -d \n'
@@ -348,12 +349,12 @@ if __name__ == "__main__":
     if args.create:
         proj = setting.get_active_proj()
         for p in proj.path.__dict__.values():
-            os.makedirs(p, exist_ok=True)
+            _os.makedirs(p, exist_ok=True)
             print("* '{}' created.".format(p))
 
     if args.default:
-        if os.path.isfile(__setting_file__):
-            os.remove(__setting_file__)
+        if _os.path.isfile(__setting_file__):
+            _os.remove(__setting_file__)
         Setting.defaults().save()
         print('Default settings were saved at {}'.format(__setting_file__))
 
