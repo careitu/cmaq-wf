@@ -12,7 +12,7 @@ Python script to run mcip
 import os
 import itertools
 import logging
-from os.path import join
+from os.path import join as _join
 from timeit import default_timer as timer
 
 import calendar
@@ -22,10 +22,9 @@ from datetime import timedelta as _td
 from datetime import timezone as _tz
 
 from settings import setting as s
-from _helper_functions_ import _create_argparser_
 
 proj = s.get_active_proj()
-logging_dir = os.path.join(os.path.expanduser("~"), '.config/cwf')
+logging_dir = _join(os.path.expanduser("~"), '.config/cwf')
 os.makedirs(logging_dir, exist_ok=True)
 
 # ----------------------------------
@@ -35,20 +34,18 @@ log.setLevel(logging.DEBUG)
 fmt_str = '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s'
 formatter = logging.Formatter(fmt_str, datefmt='%Y-%m-%dT%H:%M:%S')
 # create file handler
-fh = logging.FileHandler(os.path.join(logging_dir, 'cwf.log'))
+fh = logging.FileHandler(_join(logging_dir, 'cwf.log'))
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 log.addHandler(fh)
-
 # ----------------------------------
 
-dir_proj = join(proj.path, proj.name)
-dir_prog = join(proj.path_cmaq_exe, 'PREP/mcip/src')
+dir_prog = _join(proj.path.cmaq_app, 'PREP', 'mcip', 'src')
 wrfout_fmt = '${{InMetDir}}' \
              '/wrfout_${{dom_num}}_${{year}}-${{month}}-{:02d}_00:00:00'
-dir_in_geo = join(dir_proj, 'WPS')
-dir_out_fmt = join(dir_proj, 'mcip/{}km/{}/{}')
-dir_in_met_fmt = join(dir_proj, 'wrf/{}')
+dir_in_geo = proj.path.wps
+dir_out_fmt = _join(proj.path.mcip, '{}km', '{}', '{}')
+dir_in_met_fmt = _join(proj.path.wrf, '{}')
 
 
 def get_script(year, month, day, dom, proj_name, dir_in_met, dir_in_geo,
@@ -329,37 +326,55 @@ def get_days(year, month, day=list(range(1, 32))):
     return days
 
 
-def create_InMetFiles(days):
-    """ Create input meteorology file paths """
+def get_InMetFiles(days):
+    """ get input meteorology file paths as list """
     fmt = wrfout_fmt + ' \\'
-    list_of_files = [fmt.format(d) for d in days]
-    str_files = '\n\t'.join(list_of_files)[:-1]
-    return 'set InMetFiles = ( {})'.format(str_files)
+    return [fmt.format(d) for d in days]
+
+
+def create_InMetFiles(days):
+    """ Create input meteorology file paths string """
+    return 'set InMetFiles = ( {})'.format(
+        '\n\t'.join(get_InMetFiles(days))[:-1])
 
 
 def del_files(dir, files):
     import glob
-    files = os.path.join(dir, files)
+    files = _join(dir, files)
     for f in glob.glob(files):
         os.remove(f)
 
 
-if __name__ == "__main__":
-    DESCRIPTION = 'Run mcip script\n' + \
-                  'Project: {}\nProject Dir: {}\nCMAQ Dir: {}'
-    DESCRIPTION = DESCRIPTION.format(proj.name, proj.path, proj.path_cmaq_exe)
+def get_last_line(file):
+    with open(file, 'rb') as f:
+        f.seek(-2, os.SEEK_END)
+        while f.read(1) != b'\n':
+            f.seek(-2, os.SEEK_CUR)
+        return f.readline().decode()
+
+
+def _parse_args_():
+    from _helper_functions_ import _create_argparser_
+    DESCRIPTION = 'mcip script\n\n' + \
+                  'Project: {}\n  Path: {}\nCMAQ\n  Path: {}\n  version: {}'
+    DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
+                                     proj.path.cmaq_app, proj.cmaq_ver)
     EPILOG = 'Example of use:\n' + \
-             ' %(prog)s -d \n'
+             ' %(prog)s -n 11 -y 2015 -m 2 -d 4 5 6\n'
     p = _create_argparser_(DESCRIPTION, EPILOG)
     p.add_argument('-n', '--domain', nargs='+', type=int,
                    default=proj.get_dom_ids(),
                    help="domain Id(s). Default is all domains in the project.")
     p.add_argument('--monthly', action='store_true',
-                   help='foo the bars before frobbling')
+                   help='Run mcip as monthly')
     p.add_argument('-y', '--years', nargs='+', type=int, default=proj.years)
     p.add_argument('-m', '--months', nargs='+', type=int, default=proj.months)
     p.add_argument('-d', '--days', nargs='+', type=int, default=proj.days)
-    a = p.parse_args()
+    return p.parse_args()
+
+
+if __name__ == "__main__":
+    a = _parse_args_()
 
     verbose = a.print
     if verbose:
@@ -375,7 +390,7 @@ if __name__ == "__main__":
         day = [1]
     ym = expandgrid(year, month)  # Year and months
 
-    log_dir = os.path.join(dir_proj, 'logs', 'mcip')
+    log_dir = _join(proj.path.logs, 'mcip')
     os.makedirs(log_dir, exist_ok=True)
 
     log.info('Creating {} mcip files'.format(run_name))
@@ -412,9 +427,9 @@ if __name__ == "__main__":
                 tmp_name = next(tf._get_candidate_names())
                 fmt = 'mcip_{}_{}'.format(dom.name, str_date)
                 file_script = '{}_{}.csh'.format(fmt, tmp_name)
-                file_script = os.path.join(tf.gettempdir(), file_script)
-                file_log = os.path.join(log_dir, '{}.log'.format(fmt))
-                file_err = os.path.join(log_dir, '{}.err'.format(fmt))
+                file_script = _join(tf.gettempdir(), file_script)
+                file_log = _join(log_dir, '{}.log'.format(fmt))
+                file_err = _join(log_dir, '{}.err'.format(fmt))
                 script = get_script(y, m, d, dom, proj.name, dir_in_met,
                                     dir_in_geo, dir_out, dir_prog,
                                     in_met_files, a.monthly,
@@ -437,6 +452,10 @@ if __name__ == "__main__":
                     msg = 'Day: {} [Time: {:.2f} secs]'
                     elapsed = day_timer_end - day_timer_start
                     log.info(msg.format(str_date, elapsed))
+
+                last_line = get_last_line(file_log)
+                if last_line == 'Error running mcip':
+                    log.error('Error running mcip. See: {}'.format(file_log))
 
             del_files(dir_out, 'fort.*')
 
