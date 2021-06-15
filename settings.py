@@ -85,9 +85,10 @@ class Domain:
                    dic['ncol'], dic['nrow'], dic['doms'])
 
 
-class Paths:
+class Paths():
     def __init__(self, **kwargs):
-        self.__dict__ = kwargs
+        self.type = 'Paths'
+        self.__dict__.update(kwargs)
 
     def __repr__(self):
         s = 'Paths:\n'
@@ -184,7 +185,7 @@ class Setting(metaclass=_Singleton):
         dir_proj = _join('/mnt/disk3/projects/', proj_name)
         dir_cmaq_app = '/mnt/ssd2/APPS/CMAQ'
         proj = set.new_proj('cityair', 'gcc', '532', [2015], [1, 2, 3],
-                            list(range(1, 32)), active=True)
+                            list(range(1, 32)), active=False)
         proj.path = Paths(proj=dir_proj,
                           cmaq_app=dir_cmaq_app,
                           wps=_join(dir_proj, 'WPS'),
@@ -204,6 +205,7 @@ class Setting(metaclass=_Singleton):
         proj_name = 'test_cityair'
         dir_proj = _join('/mnt/disk3/projects/', proj_name)
         proj2 = _dcp(proj)
+        proj2.active = True
         proj2.id = 2
         proj2.name = 'test_cityair'
         proj2.path = Paths(proj=dir_proj,
@@ -235,18 +237,19 @@ class Setting(metaclass=_Singleton):
         if proj_name in keys:
             for k, v in self.projects.items():
                 v.active = k == proj_name
+            self.save()
         else:
             raise ValueError('{} is not a project name'.format(proj_name))
 
     def get_active_proj(self, warn=True):
-        keys = list(self.projects.keys())
         projs = {k: v for k, v in self.projects.items() if v.active}
+        keys = list(projs.keys())
         if warn:
             if len(projs) > 1:
                 msg = "You have multiple active projects. Returning first."
                 warnings.warn(msg)
         if len(projs) == 0:
-            warnings.warn("You don't have any active project")
+            raise ValueError("You don't have any active project")
         return projs[keys[0]]
 
     @staticmethod
@@ -294,6 +297,8 @@ class Setting(metaclass=_Singleton):
                 v = Project.fromDict(dic)
             elif t == 'Setting':
                 v = Setting.fromDict(dic)
+            elif t == 'Paths':
+                v = Paths.fromDict(dic)
             return v
         return dic
 
@@ -331,11 +336,20 @@ if __name__ == "__main__":
                    default=False, action="store_true")
     g.add_argument('-a', '--activate', metavar='PROJECT_NAME',
                    help="Activate a project")
+    g.add_argument('-c', '--create', help="create folders for active project",
+                   default=False, action="store_true")
+
     args = p.parse_args()
 
     if args.activate is not None:
         setting.activate(args.activate)
         print('{} was activated'.format(args.activate))
+
+    if args.create:
+        proj = setting.get_active_proj()
+        for p in proj.path.__dict__.values():
+            os.makedirs(p, exist_ok=True)
+            print("* '{}' created.".format(p))
 
     if args.default:
         if os.path.isfile(__setting_file__):
@@ -343,5 +357,9 @@ if __name__ == "__main__":
         Setting.defaults().save()
         print('Default settings were saved at {}'.format(__setting_file__))
 
-    if args.activate is None and not args.default:
+    if args.print:
         print(setting.encode())
+
+    if not args.create and not args.print and \
+       args.activate is None and not args.default:
+        print('CWF Projects:\n{}'.format(setting))
