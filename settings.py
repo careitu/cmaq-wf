@@ -7,13 +7,14 @@ Create/get CMAQ-WF settings
 ~~~~~~~~
 """
 import os as _os
+from os.path import join as _join
 import json as _json
 from warnings import warn as _warn
 from json import JSONEncoder as _je
 from pathlib import Path as _path
 
-__setting_file__ = _os.path.join(str(_path.home()),
-                                 '.config', 'cwf', 'cwf.json')
+__setting_file__ = _join(str(_path.home()),
+                         '.config', 'cwf', 'cwf.json')
 
 
 class _Singleton(type):
@@ -156,6 +157,22 @@ class Project:
         del self.doms[id]
 
 
+class Log:
+    def __init__(self, **kwargs):
+        self.type = 'Log'
+        self.__dict__.update(kwargs)
+
+    def __repr__(self):
+        s = 'log:\n'
+        for k, v in self.__dict__.items():
+            s += '  {}: {}\n'.format(k, v)
+        return s
+
+    @classmethod
+    def fromDict(cls, dic):
+        return cls(**dic)
+
+
 class Setting(metaclass=_Singleton):
     class Encoder(_je):
         def default(self, o):
@@ -163,9 +180,15 @@ class Setting(metaclass=_Singleton):
                    if not k.startswith('__')}
             return dic
 
-    def __init__(self, projects=None):
+    def __init__(self, log=None, projects=None):
         self.type = 'Setting'
+        config_path = _join(str(_path.home()), '.config')
+        if log is None:
+            log = Log(file=_join(config_path, 'cwf.log'),
+                      level='INFO')
+        self.log = log
         self.projects = {} if projects is None else projects
+        self.__loaded__ = False
 
     def __repr__(self):
         s = ''
@@ -176,7 +199,6 @@ class Setting(metaclass=_Singleton):
 
     @classmethod
     def defaults(cls):
-        from os.path import join as _join
         from copy import deepcopy as _dcp
         set = cls()
         set.projects = {}
@@ -265,6 +287,7 @@ class Setting(metaclass=_Singleton):
         try:
             with open(file, 'r') as f:
                 obj = _json.load(f, object_hook=cls._Decoder_)
+                obj.__loaded__ = True
         except FileNotFoundError:
             obj = Setting()
         except _json.decoder.JSONDecodeError:
@@ -285,7 +308,7 @@ class Setting(metaclass=_Singleton):
 
     @classmethod
     def fromDict(cls, dic):
-        return cls(dic['projects'])
+        return cls(dic['log'], dic['projects'])
 
     @staticmethod
     def _Decoder_(dic):
@@ -300,6 +323,8 @@ class Setting(metaclass=_Singleton):
                 v = Setting.fromDict(dic)
             elif t == 'Paths':
                 v = Paths.fromDict(dic)
+            elif t == 'Log':
+                v = Log.fromDict(dic)
             return v
         return dic
 
@@ -309,19 +334,19 @@ class Setting(metaclass=_Singleton):
     def decode(self):
         return _json.loads(self.encode(), object_hook=self._Decoder_)
 
-    def save(self, file=__setting_file__):
-        dir = _os.path.dirname(file)
+    def save(self):
+        dir = _os.path.dirname(__setting_file__)
         _os.makedirs(dir, exist_ok=True)
         projs = {k: v for k, v in self.projects.items() if v.active}
         if len(projs) > 1:
             keys = list(projs.keys())
             for i in range(1, len(keys)):
                 projs[keys[i]].active = False
-        with open(file, 'w') as f:
+        with open(__setting_file__, 'w') as f:
             _json.dump(self, f, indent=2, cls=Setting.Encoder)
 
-    def load(self, file=__setting_file__):
-        self = self.load_from_file(file)
+    def load(self):
+        self = Setting.load_from_file()  # noqa: F841
 
 
 def _parse_args_():
@@ -362,7 +387,11 @@ if __name__ == "__main__":
         print('Default settings were saved at {}'.format(__setting_file__))
 
     if args.print:
-        print(setting.encode())
+        if setting.__loaded__:
+            print(setting.encode())
+        else:
+            msg = 'Config file does not exist. Help: "{} -h"'
+            print(msg.format(_os.path.basename(__file__)))
 
     if not args.create and not args.print and \
        args.activate is None and not args.default:
