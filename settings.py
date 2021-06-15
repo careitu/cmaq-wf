@@ -193,7 +193,8 @@ class Setting(metaclass=_Singleton):
                           mcip=_join(dir_proj, 'mcip'),
                           icon=_join(dir_proj, 'icon'),
                           bcon=_join(dir_proj, 'bcon'),
-                          emis=_join(dir_proj, 'emis'))
+                          emis=_join(dir_proj, 'emis'),
+                          logs=_join(dir_proj, 'logs'))
         eu = proj.append(1, 'eu', 36, 124, 90)
         tr = eu.append(2, 'tr', 12, 172, 90)
         tr.append(3, 'aegean', 4, 103, 94)
@@ -215,7 +216,8 @@ class Setting(metaclass=_Singleton):
                            mcip=_join(dir_proj, 'mcip'),
                            icon=_join(dir_proj, 'icon'),
                            bcon=_join(dir_proj, 'bcon'),
-                           emis=_join(dir_proj, 'emis'))
+                           emis=_join(dir_proj, 'emis'),
+                           logs=_join(dir_proj, 'logs'))
         set.projects[proj_name] = proj2
         return set
 
@@ -322,7 +324,7 @@ class Setting(metaclass=_Singleton):
         self = self.load_from_file(file)
 
 
-def _main_():
+def _parse_args_():
     from _helper_functions_ import _create_argparser_
     DESCRIPTION = 'Save/load CMAQ Settings\n'
     EPILOG = 'Example of use:\n' + \
@@ -341,7 +343,7 @@ def _main_():
 setting = Setting.load_from_file()
 
 if __name__ == "__main__":
-    args = _main_()
+    args = _parse_args_()
 
     if args.activate is not None:
         setting.activate(args.activate)
