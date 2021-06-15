@@ -322,15 +322,11 @@ class Setting(metaclass=_Singleton):
         self = self.load_from_file(file)
 
 
-setting = Setting.load_from_file()
-
-if __name__ == "__main__":
+def main():
     from _helper_functions_ import _create_argparser_
-
     DESCRIPTION = 'Save/load CMAQ Settings\n'
     EPILOG = 'Example of use:\n' + \
              ' %(prog)s -d \n'
-
     p = _create_argparser_(DESCRIPTION, EPILOG)
     g = p.add_mutually_exclusive_group(required=False)
     g.add_argument('-d', '--default', help="create default settings",
@@ -339,8 +335,13 @@ if __name__ == "__main__":
                    help="Activate a project")
     g.add_argument('-c', '--create', help="create folders for active project",
                    default=False, action="store_true")
+    return p.parse_args()
 
-    args = p.parse_args()
+
+setting = Setting.load_from_file()
+
+if __name__ == "__main__":
+    args = main()
 
     if args.activate is not None:
         setting.activate(args.activate)
