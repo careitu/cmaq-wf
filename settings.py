@@ -156,13 +156,13 @@ class Project:
         del self.doms[id]
 
 
-class SettingEncoder(_je):
-    def default(self, o):
-        dic = {k: v for k, v in o.__dict__.items() if not k.startswith('__')}
-        return dic
-
-
 class Setting(metaclass=_Singleton):
+    class Encoder(_je):
+        def default(self, o):
+            dic = {k: v for k, v in o.__dict__.items()
+                   if not k.startswith('__')}
+            return dic
+
     def __init__(self, projects=None):
         self.type = 'Setting'
         self.projects = {} if projects is None else projects
@@ -302,7 +302,7 @@ class Setting(metaclass=_Singleton):
         return dic
 
     def encode(self):
-        return _json.dumps(self, indent=2, cls=SettingEncoder)
+        return _json.dumps(self, indent=2, cls=Setting.Encoder)
 
     def decode(self):
         return _json.loads(self.encode(), object_hook=self._Decoder_)
@@ -316,13 +316,13 @@ class Setting(metaclass=_Singleton):
             for i in range(1, len(keys)):
                 projs[keys[i]].active = False
         with open(file, 'w') as f:
-            _json.dump(self, f, indent=2, cls=SettingEncoder)
+            _json.dump(self, f, indent=2, cls=Setting.Encoder)
 
     def load(self, file=__setting_file__):
         self = self.load_from_file(file)
 
 
-def main():
+def _main_():
     from _helper_functions_ import _create_argparser_
     DESCRIPTION = 'Save/load CMAQ Settings\n'
     EPILOG = 'Example of use:\n' + \
@@ -341,7 +341,7 @@ def main():
 setting = Setting.load_from_file()
 
 if __name__ == "__main__":
-    args = main()
+    args = _main_()
 
     if args.activate is not None:
         setting.activate(args.activate)
