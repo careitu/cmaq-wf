@@ -436,33 +436,26 @@ if __name__ == "__main__":
                 day_timer_end = timer()
 
                 if not a.monthly:
-                    elapsed = day_timer_end - day_timer_start
+                    el = time_fmt.format(day_timer_end - day_timer_start)
                     msg = dom_str + ', ' + day_str
-                    if err is not None:
-                        msg = msg + ', ' + err.detail
-                    msg = msg + ' ' + time_fmt.format(elapsed)
                     if err is None:
-                        log.info(msg)
+                        log.info(msg + ' ' + el)
                     else:
-                        log.error(msg)
+                        log.error(msg + ', ' + err.detail + ' ' + el)
                         err = None
 
             del_files(dir_out, 'fort.*')
 
-            elapsed = day_timer_end - month_timer_start
+            el = time_fmt.format(day_timer_end - month_timer_start)
             msg = dom_str + ', ' + month_str
-            if err is not None:
-                msg = msg + ', ' + err.detail
-            msg = msg + ' ' + time_fmt.format(elapsed)
             if err is None:
-                log.info(msg)
+                log.info(msg + ' ' + el)
             else:
-                log.error(msg)
-                err = None
+                log.error(msg + ', ' + err.detail + ' ' + el)
 
         msg = '{} completed '.format(dom_str)
-        elapsed = day_timer_end - dom_timer_start
-        log.info(msg + time_fmt.format(elapsed))
+        el = day_timer_end - dom_timer_start
+        log.info(msg + time_fmt.format(el))
 
-    elapsed = day_timer_end - mcip_timer_start
-    log.info('mcip completed ' + time_fmt.format(elapsed))
+    el = day_timer_end - mcip_timer_start
+    log.info('mcip completed ' + time_fmt.format(el))
