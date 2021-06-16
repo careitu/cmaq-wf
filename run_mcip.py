@@ -10,6 +10,7 @@ Python script to run mcip
 """
 
 import os
+import sys
 import itertools
 import logging
 from os.path import join as _join
@@ -28,7 +29,7 @@ logging_dir = _join(os.path.expanduser("~"), '.config/cwf')
 os.makedirs(logging_dir, exist_ok=True)
 
 # ----------------------------------
-log = logging.getLogger('mcip')
+log = logging.getLogger('{}.mcip'.format(proj.name))
 log.setLevel(logging.DEBUG)
 # create formatter
 fmt_str = '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s'
@@ -338,21 +339,6 @@ def create_InMetFiles(days):
         '\n\t'.join(get_InMetFiles(days))[:-1])
 
 
-def del_files(dir, files):
-    import glob
-    files = _join(dir, files)
-    for f in glob.glob(files):
-        os.remove(f)
-
-
-def get_last_line(file):
-    with open(file, 'rb') as f:
-        f.seek(-2, os.SEEK_END)
-        while f.read(1) != b'\n':
-            f.seek(-2, os.SEEK_CUR)
-        return f.readline().decode()
-
-
 def _parse_args_():
     from _helper_functions_ import _create_argparser_
     DESCRIPTION = 'mcip script\n\n' + \
@@ -374,6 +360,11 @@ def _parse_args_():
 
 
 if __name__ == "__main__":
+    from _helper_functions_ import ExitHelper
+    from _helper_functions_ import ScriptError
+    from _helper_functions_ import run_script_mcip
+    from _helper_functions_ import del_files
+
     a = _parse_args_()
 
     verbose = a.print
@@ -396,14 +387,18 @@ if __name__ == "__main__":
     log.info('Creating {} mcip files'.format(run_name))
     log.info('log dir: {}'.format(log_dir))
 
-    import tempfile as tf
-    import subprocess as subp
+    time_fmt = '[Time: {:.2f} secs]'
     mcip_timer_start = timer()
+    flag = ExitHelper()
     for dom in doms:
         dom_timer_start = timer()
-        log.info('Domain: {} ({})'.format(dom.name, dom.id))
+        dom_str = 'Dom: {}-{}'.format(dom.size, dom.name)
+        log.info(dom_str + ' starting...')
         for y, m in ym:
-            log.info('Processing Month {}-{:02d}'.format(y, m))
+            month_str = 'Month: {}-{:02d}'.format(y, m)
+            if not a.monthly:
+                log.info('Processing {}'.format(month_str))
+
             days = get_days(y, m, day)
 
             if a.monthly:
@@ -422,51 +417,52 @@ if __name__ == "__main__":
 
             month_timer_start = timer()
             for d in days:
+                if flag.exit:
+                    log.info('User stopped execution')
+                    sys.exit()
                 str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
-                # pylint: disable=W0212
-                tmp_name = next(tf._get_candidate_names())
-                fmt = 'mcip_{}_{}'.format(dom.name, str_date)
-                file_script = '{}_{}.csh'.format(fmt, tmp_name)
-                file_script = _join(tf.gettempdir(), file_script)
-                file_log = _join(log_dir, '{}.log'.format(fmt))
-                file_err = _join(log_dir, '{}.err'.format(fmt))
+                day_str = 'Day: {}'.format(str_date)
                 script = get_script(y, m, d, dom, proj.name, dir_in_met,
                                     dir_in_geo, dir_out, dir_prog,
                                     in_met_files, a.monthly,
                                     proj.compiler)
 
                 day_timer_start = timer()
-                with open(file_script, 'w') as f:
-                    f.write("#!/bin/csh -f\n")
-                    f.write(script)
-
-                subp.call(['chmod', '+x', file_script])
-                with open(file_err, 'w') as fe:
-                    with open(file_log, 'w') as fl:
-                        subp.call([file_script], stdout=fl, stderr=fe)
-
-                os.remove(file_script)
+                err = None
+                try:
+                    run_script_mcip(script, dom, str_date)
+                except ScriptError as error:
+                    err = error
                 day_timer_end = timer()
 
                 if not a.monthly:
-                    msg = 'Day: {} [Time: {:.2f} secs]'
                     elapsed = day_timer_end - day_timer_start
-                    log.info(msg.format(str_date, elapsed))
-
-                last_line = get_last_line(file_log)
-                if last_line == 'Error running mcip':
-                    log.error('Error running mcip. See: {}'.format(file_log))
+                    msg = dom_str + ', ' + day_str
+                    if err is not None:
+                        msg = msg + ', ' + err.detail
+                    msg = msg + ' ' + time_fmt.format(elapsed)
+                    if err is None:
+                        log.info(msg)
+                    else:
+                        log.error(msg)
+                        err = None
 
             del_files(dir_out, 'fort.*')
 
-            msg = 'Completed Month: {}-{:02d} in {:.2f} secs.'
             elapsed = day_timer_end - month_timer_start
-            log.info(msg.format(y, m, elapsed))
+            msg = dom_str + ', ' + month_str
+            if err is not None:
+                msg = msg + ', ' + err.detail
+            msg = msg + ' ' + time_fmt.format(elapsed)
+            if err is None:
+                log.info(msg)
+            else:
+                log.error(msg)
+                err = None
 
-        msg = 'Completed domain {} in {:.2f} secs.'
+        msg = '{} completed '.format(dom_str)
         elapsed = day_timer_end - dom_timer_start
-        log.info(msg.format(dom.name, elapsed))
+        log.info(msg + time_fmt.format(elapsed))
 
-    msg = 'Completed mcip in {:.2f} secs.'
     elapsed = day_timer_end - mcip_timer_start
-    log.info(msg.format(elapsed))
+    log.info('mcip completed ' + time_fmt.format(elapsed))
