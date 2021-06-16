@@ -10,6 +10,7 @@ Python script to run bcon
 """
 
 import os
+import sys
 import itertools
 import logging
 from os.path import join
@@ -21,14 +22,13 @@ from datetime import datetime as _dt
 from datetime import timezone as _tz
 
 from settings import setting as s
-from _helper_functions_ import _create_argparser_
 
 proj = s.get_active_proj()
 logging_dir = os.path.join(os.path.expanduser("~"), '.config/cwf')
 os.makedirs(logging_dir, exist_ok=True)
 
 # ----------------------------------
-log = logging.getLogger('bcon')
+log = logging.getLogger('{}.bcon'.format(proj.name))
 log.setLevel(logging.DEBUG)
 # create formatter
 fmt_str = '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s'
@@ -163,56 +163,18 @@ def is_in_file(file_name, search_string):
         return s.find(search_string) != -1
 
 
-class ScriptError(Exception):
-    """ Script Error """
-
-    def __init__(self, message, detail=None):
-        self.message = message
-        self.detail = detail
-
-    def __str__(self):
-        return str(self.message)
-
-
-def run_script(script, str_date, log_dir, run_type='bcon'):
-    import tempfile as tf
-    import subprocess as subp
-
-    tmp_name = next(tf._get_candidate_names())
-    fmt = '{}_{}_{}'.format(run_type, dom.name, str_date)
-    file_script = '{}_{}.csh'.format(fmt, tmp_name)
-    file_script = join(tf.gettempdir(), file_script)
-    file_log = join(log_dir, '{}.log'.format(fmt))
-    file_err = join(log_dir, '{}.err'.format(fmt))
-
-    with open(file_script, 'w') as f:
-        f.write("#!/bin/csh -f\n")
-        f.write(script)
-
-    subp.call(['chmod', '+x', file_script])
-    with open(file_err, 'w') as fe:
-        with open(file_log, 'w') as fl:
-            subp.call([file_script], stdout=fl, stderr=fe)
-
-    os.remove(file_script)
-
-    if not is_in_file(file_log, b'BCON completed successfully'):
-        raise ScriptError('Error running bcon', 'See: {}'.format(file_log))
-
-
-def main(dir_proj):
+def _parse_args_(dir_proj):
+    from _helper_functions_ import _create_argparser_
     DESCRIPTION = 'Run bcon script\n\n' + \
                   'Project: {}\n  Path: {}\nCMAQ\n  Path: {}\n  version: {}'
-    DESCRIPTION = DESCRIPTION.format(proj.name, dir_proj, proj.path_cmaq_exe,
-                                     proj.cmaq_ver)
+    DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
+                                     proj.path_cmaq_app, proj.cmaq_ver)
     EPILOG = 'Example of use:\n' + \
-             ' %(prog)s -d \n'
+             ' %(prog)s -n 11 -y 2015 -m 2 -d 4 5 6\n'
     p = _create_argparser_(DESCRIPTION, EPILOG)
     p.add_argument('-n', '--domain', nargs='+', type=int,
                    default=proj.get_dom_ids(),
                    help="domain Id(s). Default is all domains in the project.")
-    # p.add_argument('-b', '--bctype', default='regrid',
-    #                choices=['profile', 'regrid'], help='default is regrid.')
     p.add_argument('-y', '--years', nargs='+', type=int, default=proj.years)
     p.add_argument('-m', '--months', nargs='+', type=int, default=proj.months)
     p.add_argument('-d', '--days', nargs='+', type=int, default=proj.days)
@@ -220,8 +182,12 @@ def main(dir_proj):
 
 
 if __name__ == "__main__":
+    from _helper_functions_ import ExitHelper
+    from _helper_functions_ import ScriptError
+    from _helper_functions_ import run_script_bcon
+
     dir_proj = join(proj.path, proj.name)
-    a = main(dir_proj)
+    a = _parse_args_(dir_proj)
 
     verbose = a.print
     if verbose:
@@ -245,49 +211,58 @@ if __name__ == "__main__":
     os.makedirs(dir_out, exist_ok=True)
     log.info('Output Dir: {}'.format(dir_out))
 
+    time_fmt = '[Time: {:.2f} secs]'
+    bcon_timer_start = timer()
+    flag = ExitHelper()
     bcon_timer_start = timer()
     for dom in doms:
+        dom_timer_start = timer()
+        dom_str = 'Dom: {}-{}'.format(dom.size, dom.name)
+        log.info(dom_str + ' starting...')
+
         dom_name = dom.name
         dom_outer = dom.__parent__
         BCTYPE = 'profile' if dom_outer is None else 'regrid'
         dom_outer_size = None if dom_outer is None else dom_outer.size
-        dom_timer_start = timer()
-        log.info('Domain: {} ({})'.format(dom.name, dom.id))
         for y, m in ym:
+            month_str = 'Month: {}-{:02d}'.format(y, m)
             log.info('Processing Month {}-{:02d}'.format(y, m))
             days = get_days(y, m, day)
 
             month_timer_start = timer()
             for d in days:
+                if flag.exit:
+                    log.info('User stopped execution')
+                    sys.exit()
+                str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
+                day_str = 'Day: {}'.format(str_date)
                 script = get_script(y, m, d, dom_name, dom_outer_size,
                                     dom.size, proj.name, dir_proj, BCTYPE,
                                     proj.cmaq_ver, proj.compiler)
-                str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
 
                 day_timer_start = timer()
                 err = None
                 try:
-                    run_script(script, str_date, log_dir, run_type='bcon')
+                    run_script_bcon(script, dom, str_date)
                 except ScriptError as error:
                     err = error
                 day_timer_end = timer()
 
-                elapsed = day_timer_end - day_timer_start
+                el = time_fmt.format(day_timer_end - day_timer_start)
+                msg = dom_str + ', ' + day_str
                 if err is None:
-                    msg = 'Day: {} [Time: {:.2f} secs]'
-                    log.info(msg.format(str_date, elapsed))
+                    log.info(msg + ' ' + el)
                 else:
-                    msg = 'Day: {} {} [Time: {:.2f} secs]'
-                    log.error(msg.format(str_date, err.detail, elapsed))
+                    log.error(msg + ', ' + err.detail + ' ' + el)
+                    err = None
 
-            msg = 'Completed Month: {}-{:02d} [Time: {:.2f} secs]'
-            elapsed = day_timer_end - month_timer_start
-            log.info(msg.format(y, m, elapsed))
+            el = time_fmt.format(day_timer_end - month_timer_start)
+            msg = dom_str + ', ' + month_str
+            log.info(msg + ' ' + el)
 
-        msg = 'Completed domain {} [Time: {:.2f} secs]'
-        elapsed = day_timer_end - dom_timer_start
-        log.info(msg.format(dom.name, elapsed))
+        msg = '{} completed '.format(dom_str)
+        el = day_timer_end - dom_timer_start
+        log.info(msg + time_fmt.format(el))
 
-    msg = 'Completed mcip [Time: {:.2f} secs]'
-    elapsed = day_timer_end - bcon_timer_start
-    log.info(msg.format(elapsed))
+    el = day_timer_end - bcon_timer_start
+    log.info('bcon completed ' + time_fmt.format(el))
