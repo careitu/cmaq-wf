@@ -182,7 +182,7 @@ class Setting(metaclass=_Singleton):
 
     def __init__(self, log=None, projects=None):
         self.type = 'Setting'
-        config_path = _join(str(_path.home()), '.config')
+        config_path = _join(str(_path.home()), '.config', 'cwf')
         if log is None:
             log = Log(file=_join(config_path, 'cwf.log'),
                       level='INFO')
