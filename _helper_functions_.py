@@ -9,13 +9,45 @@ Create/get CMAQ-WF settings
 import argparse as _ap
 import os as _os
 import sys as _sys
+from os.path import join as _join
 from argparse import RawTextHelpFormatter as _rtformatter
+import signal
 
 __version__ = '0.0.1.dev'
 __author__ = 'Ismail SEZEN'
 __email__ = 'sezenismail@gmail.com'
 __license__ = 'AGPL v3.0'
 __year__ = '2021'
+
+
+class ScriptError(Exception):
+    """ Script Error """
+
+    def __init__(self, message, detail=None):
+        self.message = message
+        self.detail = detail
+
+    def __str__(self):
+        return str(self.message)
+
+
+class ExitHelper():
+    """ Class to exit from script gracefully """
+
+    def __init__(self):
+        self._state = False
+        signal.signal(signal.SIGINT, self.change_state)
+
+    def change_state(self, a, b):
+        """ Change statie of exit status """
+        print("\nStopping...", a, b)
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        self._state = True
+
+    @property
+    def exit(self):
+        """ Get exit state """
+        return self._state
 
 
 def _create_argparser_(description, epilog):
@@ -31,3 +63,63 @@ def _create_argparser_(description, epilog):
     p.add_argument('-p', '--print', action='store_true', default=False,
                    help='Verbose output')
     return p
+
+
+def del_files(dir, files):
+    import glob
+    files = _join(dir, files)
+    for f in glob.glob(files):
+        _os.remove(f)
+
+
+def is_in_file(file_name, search_string):
+    import mmap
+    with open(file_name, 'rb', 0) as f, mmap.mmap(
+      f.fileno(), 0, access=mmap.ACCESS_READ) as s:
+        return s.find(search_string) != -1
+
+
+def run_script(script, dom, str_date, run_name='mcip',
+               success_str=b'NORMAL TERMINATION'):
+    from _helper_functions_ import ScriptError
+    import tempfile as tf
+    import subprocess as subp
+    from settings import setting as s
+
+    proj = s.get_active_proj()
+    log_dir = _join(proj.path.logs, run_name)
+    _os.makedirs(log_dir, exist_ok=True)
+
+    tmp_name = next(tf._get_candidate_names())
+    fmt = '{}_{}_{}_{}'.format(run_name, dom.size, dom.name, str_date)
+    file_script = '{}_{}.csh'.format(fmt, tmp_name)
+    file_script = _join(tf.gettempdir(), file_script)
+    file_log = _join(log_dir, '{}.log'.format(fmt))
+    file_err = _join(log_dir, '{}.err'.format(fmt))
+
+    with open(file_script, 'w') as f:
+        f.write("#!/bin/csh -f\n")
+        f.write(script)
+
+    subp.call(['chmod', '+x', file_script])
+    with open(file_err, 'w') as fe:
+        with open(file_log, 'w') as fl:
+            subp.call([file_script], stdout=fl, stderr=fe)
+
+    _os.remove(file_script)
+
+    if not is_in_file(file_log, success_str):
+        msg = 'Error running {}'.format(run_name)
+        raise ScriptError(msg, 'See: {}'.format(file_log))
+
+
+def run_script_mcip(script, dom, str_date):
+    run_script(script, dom, str_date)
+
+
+def run_script_icon(script, dom, str_date):
+    run_script(script, dom, str_date, 'icon', 'XXXXXX')
+
+
+def run_script_bcon(script, dom, str_date):
+    run_script(script, dom, str_date, 'bcon', b'BCON completed successfully')
