@@ -24,8 +24,6 @@ from datetime import timezone as _tz
 from settings import setting as s
 
 proj = s.get_active_proj()
-logging_dir = os.path.join(os.path.expanduser("~"), '.config/cwf')
-os.makedirs(logging_dir, exist_ok=True)
 
 # ----------------------------------
 log = logging.getLogger('{}.bcon'.format(proj.name))
@@ -34,7 +32,7 @@ log.setLevel(logging.DEBUG)
 fmt_str = '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s'
 formatter = logging.Formatter(fmt_str, datefmt='%Y-%m-%dT%H:%M:%S')
 # create file handler
-fh = logging.FileHandler(os.path.join(logging_dir, 'cwf.log'))
+fh = logging.FileHandler(s.log.file)
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 log.addHandler(fh)
