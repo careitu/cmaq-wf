@@ -197,11 +197,17 @@ class Setting(metaclass=_Singleton):
                                      ' (active)' if v.active else '')
         return s
 
+    def reset(self):
+        config_path = _join(str(_path.home()), '.config', 'cwf')
+        self.log = Log(file=_join(config_path, 'cwf.log'),
+                       level='INFO')
+        self.projects = {}
+
     @classmethod
     def defaults(cls):
         from copy import deepcopy as _dcp
         set = cls()
-        set.projects = {}
+        set.reset()
         proj_name = 'cityair'
         dir_proj = _join('/mnt/disk3/projects/', proj_name)
         dir_cmaq_app = '/mnt/ssd2/APPS/CMAQ'
