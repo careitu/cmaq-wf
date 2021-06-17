@@ -210,7 +210,6 @@ if __name__ == "__main__":
     log.info('Output Dir: {}'.format(dir_out))
 
     time_fmt = '[Time: {:.2f} secs]'
-    bcon_timer_start = timer()
     flag = ExitHelper()
     bcon_timer_start = timer()
     for dom in doms:

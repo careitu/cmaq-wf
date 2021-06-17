@@ -118,7 +118,8 @@ def run_script_mcip(script, dom, str_date):
 
 
 def run_script_icon(script, dom, str_date):
-    run_script(script, dom, str_date, 'icon', 'XXXXXX')
+    run_script(script, dom, str_date, 'icon',
+               b'Program  ICON completed successfully')
 
 
 def run_script_bcon(script, dom, str_date):
