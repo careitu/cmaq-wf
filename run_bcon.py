@@ -161,12 +161,12 @@ def is_in_file(file_name, search_string):
         return s.find(search_string) != -1
 
 
-def _parse_args_(dir_proj):
+def _parse_args_():
     from _helper_functions_ import _create_argparser_
     DESCRIPTION = 'Run bcon script\n\n' + \
                   'Project: {}\n  Path: {}\nCMAQ\n  Path: {}\n  version: {}'
     DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
-                                     proj.path_cmaq_app, proj.cmaq_ver)
+                                     proj.path.cmaq_app, proj.cmaq_ver)
     EPILOG = 'Example of use:\n' + \
              ' %(prog)s -n 11 -y 2015 -m 2 -d 4 5 6\n'
     p = _create_argparser_(DESCRIPTION, EPILOG)
@@ -184,8 +184,7 @@ if __name__ == "__main__":
     from _helper_functions_ import ScriptError
     from _helper_functions_ import run_script_bcon
 
-    dir_proj = join(proj.path, proj.name)
-    a = _parse_args_(dir_proj)
+    a = _parse_args_()
 
     verbose = a.print
     if verbose:
@@ -198,14 +197,14 @@ if __name__ == "__main__":
     doms = [proj.get_dom_by_id(i) for i in a.domain]
     ym = expandgrid(year, month)  # Year and months
 
-    log_dir = os.path.join(dir_proj, 'logs', 'bcon')
+    log_dir = os.path.join(proj.path.logs, 'bcon')
     os.makedirs(log_dir, exist_ok=True)
 
     log.info('Creating bcon files')
     log.info('log dir: {}'.format(log_dir))
 
     # make sure output dir exist
-    dir_out = join(dir_proj, 'bcon')
+    dir_out = join(proj.path.proj, 'bcon')
     os.makedirs(dir_out, exist_ok=True)
     log.info('Output Dir: {}'.format(dir_out))
 
@@ -234,7 +233,7 @@ if __name__ == "__main__":
                 str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
                 day_str = 'Day: {}'.format(str_date)
                 script = get_script(y, m, d, dom_name, dom_outer_size,
-                                    dom.size, proj.name, dir_proj, BCTYPE,
+                                    dom.size, proj.name, proj.path.proj, BCTYPE,
                                     proj.cmaq_ver, proj.compiler)
 
                 day_timer_start = timer()
