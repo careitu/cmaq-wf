@@ -10,9 +10,11 @@ Python script to run mcip
 """
 
 import os
+import sys
 import itertools
 import logging
 from os.path import join
+from timeit import default_timer as timer
 
 import calendar
 from collections.abc import Iterable
@@ -21,37 +23,27 @@ from datetime import timedelta as _td
 from datetime import timezone as _tz
 
 from settings import setting as s
-from _helper_functions_ import _create_argparser_
 
 proj = s.get_active_proj()
-logging_dir = os.path.join(os.path.expanduser("~"), '.config/cwf')
-os.makedirs(logging_dir, exist_ok=True)
 
 # ----------------------------------
-log = logging.getLogger('icon')
+log = logging.getLogger('{}.icon'.format(proj.name))
 log.setLevel(logging.DEBUG)
 # create formatter
 fmt_str = '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s'
 formatter = logging.Formatter(fmt_str, datefmt='%Y-%m-%dT%H:%M:%S')
 # create file handler
-fh = logging.FileHandler(os.path.join(logging_dir, 'cwf.log'))
+fh = logging.FileHandler(s.log.file)
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 log.addHandler(fh)
-
 # ----------------------------------
 
-dir_proj = join(proj.path, proj.name)
-dir_prog = join(proj.path_cmaq, 'PREP/mcip/src')
-wrfout_fmt = '${{InMetDir}}' \
-             '/wrfout_${{dom_num}}_${{year}}-${{month}}-{:02d}_00:00:00'
-dir_in_geo = join(dir_proj, 'WPS')
-dir_out_fmt = join(dir_proj, 'mcip/{}km/{}/{}')
-dir_in_met_fmt = join(dir_proj, 'wrf/{}')
 
-
-def get_script(year, month, day, dom, proj_name, proj_path, compiler='gcc'):
-    dom_upper = dom.__parent__
+def get_script(year, month, day, dom, type='auto'):
+    type = 'regrid' if type == 'auto' and dom.__parent__ is not None \
+        else 'profile'
+    dom_parent_size = None if dom.__parent__ is None else dom.__parent__.size
     mn = calendar.month_name[month].lower()
     script = """
 source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh {}
@@ -63,31 +55,35 @@ endif
 echo " "; echo " Input data path, CMAQ_DATA set to $CMAQ_DATA"; echo " "
 
 set year = {:04}
-set month = {:02d} # 03
-set month_name = {} # march
-set day = {:02}
+set month = {:02d}
+set month_name = {}
+set day = {:02d}
 set dom_size = {}km
-set dom_size_upper = {}km # one upper level domain size
-set domain_num = d{:02d}
+set dom_size_parent = {}km
 set proj_name = {}
 set dom_name = {}
 
-set proj_path = {}
-set proj_mcip_path = ${{proj_path}}/mcip
-set upper_dom_cctm_path = ${{proj_mcip_path}}/${{dom_size_upper}}
+set cmaq_home = {}
+set path_icon = {}
+set path_mcip = {}
+set parent_dom_cctm_path = {}/${{dom_size_parent}}
+
+set ICTYPE   = {}
+set VRSN     = v{}
+
+set path_mcip1 = ${{path_mcip}}/${{dom_size_parent}}/${{dom_name}}/${{month_name}}
+set path_mcip2 = ${{path_mcip}}/${{dom_size}}/${{dom_name}}/${{month_name}}
 
 set ym       = ${{year}}${{month}}${{day}}
 set APPL     = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{ym}}
-set APPL       = ${{project_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
-set VRSN     = v532
-set ICTYPE   = {}
 
-set BLD      = ${{CMAQ_HOME}}/PREP/icon/scripts/BLD_ICON_${{VRSN}}_${{compiler}}
+set path_bld     = ${{cmaq_home}}/PREP/icon/scripts
+set BLD      = ${{path_bld}}/BLD_ICON_${{VRSN}}_${{compiler}}
 set EXEC     = ICON_${{VRSN}}.exe
 cat $BLD/ICON_${{VRSN}}.cfg; echo " "; set echo
 
 setenv GRID_NAME ${{dom_size}}
-setenv GRIDDESC  ${{proj_mcip_path}}/${{dom_size}}/${{dom_name}}/${{month_name}}/GRIDDESC
+setenv GRIDDESC  ${{path_mcip2}}/GRIDDESC
 setenv IOAPI_ISPH 20
 
 setenv IOAPI_LOG_WRITE F
@@ -96,27 +92,31 @@ setenv EXECUTION_ID ${{EXEC}}
 
 setenv ICON_TYPE ` echo $ICTYPE | tr "[A-Z]" "[a-z]" `
 
-set OUTDIR   = ${{proj_path}}/icon
-
 set DATE = "${{year}}-${{month}}-${{day}}"
-set YYYYJJJ  = `date -ud "${{DATE}}" +%Y%j`   #> Convert YYYY-MM-DD to YYYYJJJ
-set YYMMDD   = `date -ud "${{DATE}}" +%y%m%d` #> Convert YYYY-MM-DD to YYMMDD
-set YYYYMMDD = `date -ud "${{DATE}}" +%Y%m%d` #> Convert YYYY-MM-DD to YYYYMMDD
+set YYYYJJJ  = `date -ud "${{DATE}}" +%Y%j`
+set YYMMDD   = `date -ud "${{DATE}}" +%y%m%d`
+set YYYYMMDD = `date -ud "${{DATE}}" +%Y%m%d`
 
+set appl2 = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{year}}_${{month_name}}
+set icon_file = ICON_${{VRSN}}_${{appl2}}_${{ICON_TYPE}}_${{YYYYMMDD}}
+setenv INIT_CONC_1    "$path_icon/$icon_file -v"
 if ( $ICON_TYPE == regrid ) then
-    setenv CTM_CONC_1 ${{upper_dom_cctm_path}}/CCTM_CONC_v532_gcc_CityAir_2015_${{dom_size_upper}}_${{YYYYMMDD}}.nc
-    setenv MET_CRO_3D_CRS ${{proj_mcip_path}}/${{dom_size_upper}}/${{month}}/METCRO3D_CityAir_${{dom_size_upper}}_${{YYYYMMDD}}.nc
-    setenv MET_CRO_3D_FIN ${{proj_mcip_path}}/${{dom_size}}/${{dom_name}}/${{month}}/METCRO3D_CityAir_${{dom_size}}_${{YYYYMMDD}}.nc
-    setenv INIT_CONC_1    "$OUTDIR/ICON_${{VRSN}}_${{APPL}}_${{ICON_TYPE}}_${{YYYYMMDD}} -v"
+    set cctm_file = CCTM_CONC_${{VRSN}}_${{compiler}}_${{proj_name}}_${{year}}
+    set cctm_file = ${{cctm_file}}_${{dom_size_parent}}_${{YYYYMMDD}}.nc
+    setenv CTM_CONC_1 ${{parent_dom_cctm_path}}/${{cctm_file}}
+    set parent_m3d = METCRO3D_${{proj_name}}_${{dom_size_parent}}_${{YYYYMMDD}}.nc
+    setenv MET_CRO_3D_CRS ${{path_mcip1}}/${{parent_m3d}}
+    set cur_m3d = METCRO3D_${{proj_name}}_${{dom_size}}_${{dom_name}}_${{YYYYMMDD}}.nc
+    setenv MET_CRO_3D_FIN ${{path_mcip2}}/${{cur_m3d}}
 endif
 
 if ( $ICON_TYPE == profile ) then
-    setenv IC_PROFILE $BLD/profiles/avprofile_cb6r3m_ae7_kmtbr_hemi2016_v53beta2_m3dry_col051_row068.csv
-    setenv MET_CRO_3D_FIN ${{proj_mcip_path}}/${{dom_size}}/${{dom_name}}/${{month_name}}/METCRO3D_${{APPL}}.nc
-    setenv INIT_CONC_1    "$OUTDIR/ICON_${{VRSN}}_${{APPL}}_${{ICON_TYPE}}_${{YYYYMMDD}} -v"
+    set av = avprofile_cb6r3m_ae7_kmtbr_hemi2016_v53beta2_m3dry_col051_row068.csv
+    setenv IC_PROFILE $BLD/profiles/$av
+    setenv MET_CRO_3D_FIN ${{path_mcip2}}/METCRO3D_${{APPL}}.nc
 endif
 
-if ( ! -d "$OUTDIR" ) mkdir -p $OUTDIR
+if ( ! -d "${{path_icon}}" ) mkdir -p ${{path_icon}}
 
 ls -l $BLD/$EXEC; size $BLD/$EXEC
 unlimit
@@ -124,8 +124,10 @@ limit
 
 time $BLD/$EXEC
 
-exit()""".format(compiler, year, month, mn, day, dom.size, dom_upper.size,
-                 dom.id2, proj_name, dom.name, proj_path, 'profile')
+exit()""".format(proj.compiler, year, month, mn, day, dom.size,
+                 dom_parent_size, proj.name, dom.name, proj.path.cmaq_app,
+                 proj.path.icon, proj.path.mcip, proj.path.cctm, type,
+                 proj.cmaq_ver)
     return script
 
 
@@ -158,29 +160,35 @@ def get_days(year, month, day=list(range(1, 32))):
     return days
 
 
-def create_InMetFiles(days):
-    """ Create input meteorology file paths """
-    fmt = wrfout_fmt + ' \\'
-    list_of_files = [fmt.format(d) for d in days]
-    str_files = '\n\t'.join(list_of_files)[:-1]
-    return 'set InMetFiles = ( {})'.format(str_files)
+def _parse_args_():
+    from _helper_functions_ import _create_argparser_
+    DESCRIPTION = 'icon script\n\n' + \
+                  'Project: {}\n  Path: {}\nCMAQ\n  Path: {}\n  version: {}'
+    DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
+                                     proj.path.cmaq_app, proj.cmaq_ver)
+    EPILOG = 'Example of use:\n' + \
+             ' %(prog)s -n 11 -y 2015 -m 2 -d 4 5 6\n'
+    p = _create_argparser_(DESCRIPTION, EPILOG)
+    p.add_argument('-n', '--domain', nargs='+', type=int,
+                   default=proj.get_dom_ids(),
+                   help="domain Id(s). Default is all domains in the project.")
+    p.add_argument('-t', '--type', default='auto',
+                   choices=['auto', 'profile', 'regrid'],
+                   help="default is 'auto'.")
+    p.add_argument('-y', '--years', nargs='+', type=int, default=proj.years,
+                   help='default is all years in config file.')
+    p.add_argument('-m', '--months', nargs='+', type=int, default=proj.months,
+                   help='default is all months in config file.')
+    p.add_argument('-d', '--days', nargs='+', type=int, default=proj.days,
+                   help='default is all days in config file.')
+    return p.parse_args()
 
 
 if __name__ == "__main__":
-    DESCRIPTION = 'Run mcip script\n' + \
-                  'Project: {}\nProject Dir: {}\nCMAQ Dir: {}'
-    DESCRIPTION = DESCRIPTION.format(proj.name, proj.path, proj.path_cmaq)
-    EPILOG = 'Example of use:\n' + \
-             ' %(prog)s -d \n'
-    p = _create_argparser_(DESCRIPTION, EPILOG)
-    p.add_argument('-n', '--domain', help="domain Id(s)", nargs='+',
-                   type=int, default=[d.id for d in proj.doms])
-    p.add_argument('--monthly', action='store_true',
-                   help='foo the bars before frobbling')
-    p.add_argument('-y', '--years', nargs='+', type=int, default=proj.years)
-    p.add_argument('-m', '--months', nargs='+', type=int, default=proj.months)
-    p.add_argument('-d', '--days', nargs='+', type=int, default=proj.days)
-    a = p.parse_args()
+    from _helper_functions_ import ExitHelper
+    from _helper_functions_ import ScriptError
+    from _helper_functions_ import run_script_icon
+    a = _parse_args_()
 
     verbose = a.print
     if verbose:
@@ -190,62 +198,58 @@ if __name__ == "__main__":
         log.addHandler(ch)
 
     year, month, day = a.years, a.months, a.days
-    doms = [proj.doms[i - 1] for i in a.domain]
-    run_name = 'monthly' if a.monthly else 'daily'
-    if a.monthly:
-        day = [1]
+    day = 2
+    doms = [proj.get_dom_by_id(i) for i in a.domain]
     ym = expandgrid(year, month)  # Year and months
 
-    log_dir = os.path.join(dir_proj, 'logs', 'mcip')
+    log_dir = os.path.join(proj.path.logs, 'icon')
     os.makedirs(log_dir, exist_ok=True)
 
-    import tempfile as tf
-    import subprocess as subp
+    time_fmt = '[Time: {:.2f} secs]'
+    flag = ExitHelper()
+    icon_timer_start = timer()
     for dom in doms:
-        log.info('Creating {} mcip files for domain: {}'.format(run_name,
-                                                                dom.name))
+        dom_timer_start = timer()
+        dom_str = 'Dom: {}-{}'.format(dom.size, dom.name)
+        log.info(dom_str + ' starting...')
+
         for y, m in ym:
-            log.info('Processing Year: {}, Month: {}'.format(y, m))
+            month_str = 'Month: {}-{:02d}'.format(y, m)
+            log.info('Processing Month {}-{:02d}'.format(y, m))
             days = get_days(y, m, day)
 
-            if a.monthly:
-                days_tmp = get_days(y, m, list(range(1, 32)))
-                in_met_files = create_InMetFiles(days_tmp)
-            else:
-                in_met_files = create_InMetFiles(days)
-
-            mn = calendar.month_name[m].lower()
-            dir_out = dir_out_fmt.format(dom.size, dom.name, mn)
-            if a.monthly:
-                dir_out += '_monthly'
-            os.makedirs(dir_out, exist_ok=True)
-            log.info('Output Dir: {}'.format(dir_out))
-            dir_in_met = dir_in_met_fmt.format(mn)
-
+            month_timer_start = timer()
             for d in days:
+                if flag.exit:
+                    log.info('User stopped execution')
+                    sys.exit()
                 str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
-                if not a. monthly:
-                    log.info('Processing day: {}'.format(str_date))
-                # subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
-                # pylint: disable=W0212
-                tmp_name = next(tf._get_candidate_names())
-                fmt = 'mcip_{}_{}'.format(dom.name, str_date)
-                file_script = '{}_{}.csh'.format(fmt, tmp_name)
-                file_script = os.path.join(tf.gettempdir(), file_script)
-                file_log = os.path.join(log_dir, '{}.log'.format(fmt))
-                file_err = os.path.join(log_dir, '{}.err'.format(fmt))
-                script = get_script(y, m, d, dom, proj.name, dom.name,
-                                    dir_in_met, dir_in_geo, dir_out,
-                                    dir_prog, in_met_files, a.monthly,
-                                    proj.compiler)
-                with open(file_script, 'w') as f:
-                    f.write("#!/bin/csh -f\n")
-                    f.write(script)
+                day_str = 'Day: {}'.format(str_date)
+                script = get_script(y, m, d, dom, a.type)
 
-                subp.call(['chmod', '+x', file_script])
-                with open(file_err, 'w') as fe:
-                    with open(file_log, 'w') as fl:
-                        subp.call([file_script], stdout=fl, stderr=fe)
+                day_timer_start = timer()
+                err = None
+                try:
+                    run_script_icon(script, dom, str_date)
+                except ScriptError as error:
+                    err = error
+                day_timer_end = timer()
 
-                os.remove(file_script)
-            # subp.call('rm ' + os.path.join(dir_out, 'fort*'), shell=True)
+                el = time_fmt.format(day_timer_end - day_timer_start)
+                msg = dom_str + ', ' + day_str
+                if err is None:
+                    log.info(msg + ' ' + el)
+                else:
+                    log.error(msg + ', ' + err.detail + ' ' + el)
+                    err = None
+
+            el = time_fmt.format(day_timer_end - month_timer_start)
+            msg = dom_str + ', ' + month_str
+            log.info(msg + ' ' + el)
+
+        msg = '{} completed '.format(dom_str)
+        el = day_timer_end - dom_timer_start
+        log.info(msg + time_fmt.format(el))
+
+    el = day_timer_end - icon_timer_start
+    log.info('icon completed ' + time_fmt.format(el))
