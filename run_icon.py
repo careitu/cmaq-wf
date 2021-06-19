@@ -9,13 +9,15 @@ Run mcip
 Python script to run mcip
 """
 
+import logging
 import os
 import sys
-import logging
+
 from os.path import join
 from timeit import default_timer as timer
 
 import calendar
+
 from settings import setting as s
 
 proj = s.get_active_proj()

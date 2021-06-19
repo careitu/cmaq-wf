@@ -6,12 +6,13 @@
 Create/get CMAQ-WF settings
 ~~~~~~~~
 """
-import os as _os
-from os.path import join as _join
 import json as _json
-from warnings import warn as _warn
+import os as _os
+
 from json import JSONEncoder as _je
+from os.path import join as _join
 from pathlib import Path as _path
+from warnings import warn as _warn
 
 __setting_file__ = _join(str(_path.home()),
                          '.config', 'cwf', 'cwf.json')

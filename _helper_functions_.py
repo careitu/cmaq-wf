@@ -8,12 +8,14 @@ Create/get CMAQ-WF settings
 """
 import argparse as _ap
 import os as _os
-import sys as _sys
-from os.path import join as _join
-from argparse import RawTextHelpFormatter as _rtformatter
 import signal
+import sys as _sys
+
+from argparse import RawTextHelpFormatter as _rtformatter
+from os.path import join as _join
 
 import itertools
+
 from collections.abc import Iterable
 from datetime import datetime as _dt
 from datetime import timezone as _tz

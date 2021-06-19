@@ -9,16 +9,14 @@ Run mcip
 Python script to run mcip
 """
 
+import logging
 import os
 import sys
-import logging
+
 from os.path import join as _join
 from timeit import default_timer as timer
 
 import calendar
-from datetime import datetime as _dt
-from datetime import timedelta as _td
-from datetime import timezone as _tz
 
 from settings import setting as s
 
@@ -47,6 +45,9 @@ dir_in_met_fmt = _join(proj.path.wrf, '{}')
 
 def get_script(year, month, day, dom, proj_name, dir_in_met, dir_in_geo,
                dir_out, dir_prog, in_met_files, monthly=False, compiler='gcc'):
+    from datetime import datetime as _dt
+    from datetime import timedelta as _td
+    from datetime import timezone as _tz
     fmt = '%Y-%m-%d-%H:%M:%S'
     if monthly:
         day = 1
