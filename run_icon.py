@@ -46,7 +46,8 @@ def get_script(year, month, day, dom, type='auto'):
     dom_parent_size = None if dom.__parent__ is None else dom.__parent__.size
     mn = calendar.month_name[month].lower()
     script = """
-source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh {}
+setenv compiler {}
+source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh ${{compiler}}
 
 if ( ! -e $CMAQ_DATA ) then
     echo "   $CMAQ_DATA path does not exist"
@@ -59,31 +60,28 @@ set month = {:02d}
 set month_name = {}
 set day = {:02d}
 set dom_size = {}km
-set dom_size_parent = {}km
+set dom_size_par = {}km
 set proj_name = {}
 set dom_name = {}
 
 set cmaq_home = {}
-set path_icon = {}
-set path_mcip = {}
-set parent_dom_cctm_path = {}/${{dom_size_parent}}
+set OUTDIR = {}
+set dir_mcip = {}
+set parent_dom_cctm_path = {}/${{dom_size_par}}
 
 set VRSN     = v{}
 set ICTYPE   = {}
 
-set path_mcip1 = ${{path_mcip}}/${{dom_size_parent}}/${{dom_name}}/${{month_name}}
-set path_mcip2 = ${{path_mcip}}/${{dom_size}}/${{dom_name}}/${{month_name}}
+set dir_mcip1 = ${{dir_mcip}}/${{dom_size_par}}/${{dom_name}}/${{month_name}}
+set dir_mcip2 = ${{dir_mcip}}/${{dom_size}}/${{dom_name}}/${{month_name}}
 
-set ymd  = ${{year}}${{month}}${{day}}
-set APPL = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
-
-set path_bld     = ${{cmaq_home}}/PREP/icon/scripts
+set path_bld = ${{cmaq_home}}/PREP/icon/scripts
 set BLD      = ${{path_bld}}/BLD_ICON_${{VRSN}}_${{compiler}}
 set EXEC     = ICON_${{VRSN}}.exe
 cat $BLD/ICON_${{VRSN}}.cfg; echo " "; set echo
 
 setenv GRID_NAME ${{dom_size}}
-setenv GRIDDESC  ${{path_mcip2}}/GRIDDESC
+setenv GRIDDESC  ${{dir_mcip2}}/GRIDDESC
 setenv IOAPI_ISPH 20
 
 setenv IOAPI_LOG_WRITE F
@@ -92,30 +90,24 @@ setenv EXECUTION_ID ${{EXEC}}
 
 setenv ICON_TYPE ` echo $ICTYPE | tr "[A-Z]" "[a-z]" `
 
-set DATE = "${{year}}-${{month}}-${{day}}"
-set YYYYJJJ  = `date -ud "${{DATE}}" +%Y%j`
-set YYMMDD   = `date -ud "${{DATE}}" +%y%m%d`
-set YYYYMMDD = `date -ud "${{DATE}}" +%Y%m%d`
+set ymd  = ${{year}}${{month}}${{day}}
+set APPL = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
 
-set appl2 = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{year}}_${{month_name}}
-set icon_file = ICON_${{VRSN}}_${{appl2}}_${{ICON_TYPE}}_${{YYYYMMDD}}
-setenv INIT_CONC_1    "$path_icon/$icon_file -v"
+setenv INIT_CONC_1 "${{OUTDIR}}/ICON_${{VRSN}}_${{ICON_TYPE}}_${{APPL}} -v"
+setenv MET_CRO_3D_FIN ${{dir_mcip2}}/METCRO3D_${{APPL}}.nc
+
 if ( $ICON_TYPE == regrid ) then
-    set cctm_file = CCTM_CONC_${{VRSN}}_${{compiler}}_${{proj_name}}_${{year}}
-    set cctm_file = ${{cctm_file}}_${{dom_size_parent}}_${{YYYYMMDD}}.nc
-    setenv CTM_CONC_1 ${{parent_dom_cctm_path}}/${{cctm_file}}
-    set parent_m3d = METCRO3D_${{proj_name}}_${{dom_size_parent}}_${{YYYYMMDD}}.nc
-    setenv MET_CRO_3D_CRS ${{path_mcip1}}/${{parent_m3d}}
-    setenv MET_CRO_3D_FIN ${{path_mcip2}}/METCRO3D_${{APPL}}.nc
+  set cctm_file = CCTM_CONC_${{VRSN}}_${{compiler}}_${{proj_name}}_${{year}}
+  set cctm_file = ${{cctm_file}}_${{dom_size_par}}_${{ymd}}.nc
+  setenv CTM_CONC_1 ${{parent_dom_cctm_path}}/${{cctm_file}}
 endif
 
 if ( $ICON_TYPE == profile ) then
-    set av = avprofile_cb6r3m_ae7_kmtbr_hemi2016_v53beta2_m3dry_col051_row068.csv
-    setenv IC_PROFILE $BLD/profiles/$av
-    setenv MET_CRO_3D_FIN ${{path_mcip2}}/METCRO3D_${{APPL}}.nc
+  set av = avprofile_cb6r3m_ae7_kmtbr_hemi2016_v53beta2_m3dry_col051_row068.csv
+  setenv IC_PROFILE $BLD/profiles/$av
 endif
 
-if ( ! -d "${{path_icon}}" ) mkdir -p ${{path_icon}}
+if ( ! -d "${{OUTDIR}}" ) mkdir -p ${{OUTDIR}}
 
 ls -l $BLD/$EXEC; size $BLD/$EXEC
 unlimit

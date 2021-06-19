@@ -47,7 +47,6 @@ def get_script(year, month, day, dom, type='auto'):
     os.makedirs(proj.path.bcon, exist_ok=True)
     script = """
 setenv compiler {}
-
 source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh ${{compiler}}
 
 if ( ! -e $CMAQ_DATA ) then
@@ -61,28 +60,28 @@ set month = {:02d}
 set month_name = {}
 set day = {:02d}
 set dom_size = {}km
-set dom_size_parent = {}km
+set dom_size_par = {}km
 set proj_name = {}
 set dom_name = {}
 
 set cmaq_home = {}
-set path_bcon = {}
-set path_mcip = {}
-set parent_dom_cctm_path = {}/${{dom_size_parent}}
+set OUTDIR = {}
+set dir_mcip = {}
+set parent_dom_cctm_path = {}/${{dom_size_par}}
 
 set VRSN = v{}
 set BCTYPE = {}
 
-set path_mcip1 = ${{path_mcip}}/${{dom_size_parent}}/${{dom_name}}/${{month_name}}
-set path_mcip2 = ${{path_mcip}}/${{dom_size}}/${{dom_name}}/${{month_name}}
+set dir_mcip1 = ${{dir_mcip}}/${{dom_size_par}}/${{dom_name}}/${{month_name}}
+set dir_mcip2 = ${{dir_mcip}}/${{dom_size}}/${{dom_name}}/${{month_name}}
 
 set path_bld = ${{cmaq_home}}/PREP/bcon/scripts
-set BLD = ${{path_bld}}/BLD_BCON_${{VRSN}}_${{compiler}}
-set EXEC = BCON_${{VRSN}}.exe
+set BLD      = ${{path_bld}}/BLD_BCON_${{VRSN}}_${{compiler}}
+set EXEC     = BCON_${{VRSN}}.exe
 cat $BLD/BCON_${{VRSN}}.cfg; echo " "; set echo
 
 setenv GRID_NAME ${{dom_size}}
-setenv GRIDDESC ${{path_mcip2}}/GRIDDESC
+setenv GRIDDESC ${{dir_mcip2}}/GRIDDESC
 setenv IOAPI_ISPH 20
 
 setenv IOAPI_LOG_WRITE F
@@ -91,31 +90,24 @@ setenv EXECUTION_ID ${{EXEC}}
 
 setenv BCON_TYPE ` echo $BCTYPE | tr "[A-Z]" "[a-z]" `
 
-set DATE = "${{year}}-${{month}}-${{day}}"
-set YYYYJJJ  = `date -ud "${{DATE}}" +%Y%j`
-set YYMMDD   = `date -ud "${{DATE}}" +%y%m%d`
-set YYYYMMDD = `date -ud "${{DATE}}" +%Y%m%d`
+set ymd  = ${{year}}${{month}}${{day}}
+set APPL = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
 
-set APPL = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{YYYYMMDD}}
+setenv BNDY_CONC_1 "${{OUTDIR}}/BCON_${{VRSN}}_${{BCON_TYPE}}_${{APPL}} -v"
+setenv MET_BDY_3D_FIN ${{dir_mcip2}}/METBDY3D_${{APPL}}.nc
 
 if ( $BCON_TYPE == regrid ) then
-  set APPL2 = ${{proj_name}}_${{dom_size_parent}}_${{dom_name}}_${{YYYYMMDD}}
-  set cctm_sfx = ${{VRSN}}_${{compiler}}_${{proj_name}}_${{year}}
-  set cctm_sfx = ${{cctm_sfx}}_${{dom_size_parent}}_${{YYYYMMDD}}
-  setenv CTM_CONC_1     ${{parent_dom_cctm_path}}/CCTM_CONC_${{cctm_sfx}}.nc
-  setenv MET_CRO_3D_CRS ${{path_mcip1}}/METCRO3D_${{APPL2}}.nc
-  setenv MET_BDY_3D_FIN ${{path_mcip2}}/METBDY3D_${{APPL}}.nc
-  setenv BNDY_CONC_1    "$path_bcon/BCON_${{VRSN}}_${{BCON_TYPE}}_${{APPL}} -v"
+  set cctm_file = CCTM_CONC_${{VRSN}}_${{compiler}}_${{proj_name}}_${{year}}
+  set cctm_file = ${{cctm_file}}_${{dom_size_par}}_${{ymd}}.nc
+  setenv CTM_CONC_1 ${{parent_dom_cctm_path}}/${{cctm_file}}
 endif
 
 if ( $BCON_TYPE == profile ) then
   set av = avprofile_cb6r3m_ae7_kmtbr_hemi2016_v53beta2_m3dry_col051_row068.csv
   setenv BC_PROFILE $BLD/profiles/$av
-  setenv MET_BDY_3D_FIN ${{path_mcip2}}/METBDY3D_${{APPL}}.nc
-  setenv BNDY_CONC_1    "$path_bcon/BCON_${{VRSN}}_${{BCON_TYPE}}_${{APPL}} -v"
 endif
 
-if ( ! -d "${{path_bcon}}" ) mkdir -p ${{path_bcon}}
+if ( ! -d "${{OUTDIR}}" ) mkdir -p ${{OUTDIR}}
 
 ls -l $BLD/$EXEC; size $BLD/$EXEC
 unlimit
@@ -157,13 +149,6 @@ def get_days(year, month, day=list(range(1, 32))):
         if date_is_ok(i[0], i[1], i[2]):
             days.append(i[2])
     return days
-
-
-def is_in_file(file_name, search_string):
-    import mmap
-    with open(file_name, 'rb', 0) as f, mmap.mmap(
-      f.fileno(), 0, access=mmap.ACCESS_READ) as s:
-        return s.find(search_string) != -1
 
 
 def _parse_args_():
@@ -229,7 +214,6 @@ if __name__ == "__main__":
 
         dom_name = dom.name
         dom_outer = dom.__parent__
-        BCTYPE = 'profile' if dom_outer is None else 'regrid'
         dom_outer_size = None if dom_outer is None else dom_outer.size
         for y, m in ym:
             month_str = 'Month: {}-{:02d}'.format(y, m)
