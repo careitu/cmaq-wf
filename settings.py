@@ -215,8 +215,8 @@ class Setting(metaclass=_Singleton):
                             list(range(1, 32)), active=False)
         proj.path = Paths(proj=dir_proj,
                           cmaq_app=dir_cmaq_app,
-                          wps=_join(dir_proj, 'WPS'),
-                          wrf=_join(dir_proj, 'WRF'),
+                          wps=_join(dir_proj, 'wps'),
+                          wrf=_join(dir_proj, 'wrf'),
                           cctm=_join(dir_proj, 'cmaq'),
                           mcip=_join(dir_proj, 'mcip'),
                           icon=_join(dir_proj, 'icon'),
