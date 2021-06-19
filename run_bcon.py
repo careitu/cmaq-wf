@@ -39,10 +39,12 @@ log.addHandler(fh)
 # ----------------------------------
 
 
-def get_script(year, month, day, dom_name, dom_size_outer, dom_size_inner,
-               proj_name, dir_proj, BCTYPE='regrid', cmaq_ver='532',
-               compiler='gcc'):
+def get_script(year, month, day, dom, type='auto'):
+    type = 'regrid' if type == 'auto' and dom.__parent__ is not None \
+        else 'profile'
+    dom_parent_size = None if dom.__parent__ is None else dom.__parent__.size
     mn = calendar.month_name[month].lower()
+    os.makedirs(proj.path.bcon, exist_ok=True)
     script = """
 setenv compiler {}
 
@@ -58,25 +60,29 @@ set year = {}
 set month = {:02d}
 set month_name = {}
 set day = {:02d}
-set dom_size_outer = {}km
-set dom_size_inner = {}km
+set dom_size = {}km
+set dom_size_parent = {}km
 set proj_name = {}
 set dom_name = {}
 
-set dir_proj = {}
-set dir_mcip = ${{dir_proj}}/mcip
-set dir_inner = ${{dir_mcip}}/${{dom_size_inner}}/${{dom_name}}/${{month_name}}
-set dir_outer = ${{dir_mcip}}/${{dom_size_outer}}/${{dom_name}}/${{month_name}}
+set cmaq_home = {}
+set path_bcon = {}
+set path_mcip = {}
+set parent_dom_cctm_path = {}/${{dom_size_parent}}
 
 set VRSN = v{}
 set BCTYPE = {}
 
-set BLD = ${{CMAQ_HOME}}/PREP/bcon/scripts/BLD_BCON_${{VRSN}}_${{compiler}}
+set path_mcip1 = ${{path_mcip}}/${{dom_size_parent}}/${{dom_name}}/${{month_name}}
+set path_mcip2 = ${{path_mcip}}/${{dom_size}}/${{dom_name}}/${{month_name}}
+
+set path_bld = ${{cmaq_home}}/PREP/bcon/scripts
+set BLD = ${{path_bld}}/BLD_BCON_${{VRSN}}_${{compiler}}
 set EXEC = BCON_${{VRSN}}.exe
 cat $BLD/BCON_${{VRSN}}.cfg; echo " "; set echo
 
-setenv GRID_NAME ${{dom_size_inner}}
-setenv GRIDDESC ${{dir_inner}}/GRIDDESC
+setenv GRID_NAME ${{dom_size}}
+setenv GRIDDESC ${{path_mcip2}}/GRIDDESC
 setenv IOAPI_ISPH 20
 
 setenv IOAPI_LOG_WRITE F
@@ -85,33 +91,31 @@ setenv EXECUTION_ID ${{EXEC}}
 
 setenv BCON_TYPE ` echo $BCTYPE | tr "[A-Z]" "[a-z]" `
 
-set OUTDIR   = ${{dir_proj}}/bcon
-
 set DATE = "${{year}}-${{month}}-${{day}}"
 set YYYYJJJ  = `date -ud "${{DATE}}" +%Y%j`
 set YYMMDD   = `date -ud "${{DATE}}" +%y%m%d`
 set YYYYMMDD = `date -ud "${{DATE}}" +%Y%m%d`
 
-set APPL = ${{proj_name}}_${{dom_size_inner}}_${{dom_name}}_${{YYYYMMDD}}
+set APPL = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{YYYYMMDD}}
 
 if ( $BCON_TYPE == regrid ) then
-  set APPL2 = ${{proj_name}}_${{dom_size_outer}}_${{dom_name}}_${{YYYYMMDD}}
-  set cmaq_data_dir = ${{dir_proj}}/cmaq/${{dom_size_outer}}
+  set APPL2 = ${{proj_name}}_${{dom_size_parent}}_${{dom_name}}_${{YYYYMMDD}}
   set cctm_sfx = ${{VRSN}}_${{compiler}}_${{proj_name}}_${{year}}
-  set cctm_sfx = ${{cctm_sfx}}_${{dom_size_outer}}_${{YYYYMMDD}}
-  setenv CTM_CONC_1     ${{cmaq_data_dir}}/CCTM_CONC_${{cctm_sfx}}.nc
-  setenv MET_CRO_3D_CRS ${{dir_outer}}/METCRO3D_${{APPL2}}.nc
-  setenv MET_BDY_3D_FIN ${{dir_inner}}/METBDY3D_${{APPL}}.nc
-  setenv BNDY_CONC_1    "$OUTDIR/BCON_${{VRSN}}_${{BCON_TYPE}}_${{APPL}} -v"
+  set cctm_sfx = ${{cctm_sfx}}_${{dom_size_parent}}_${{YYYYMMDD}}
+  setenv CTM_CONC_1     ${{parent_dom_cctm_path}}/CCTM_CONC_${{cctm_sfx}}.nc
+  setenv MET_CRO_3D_CRS ${{path_mcip1}}/METCRO3D_${{APPL2}}.nc
+  setenv MET_BDY_3D_FIN ${{path_mcip2}}/METBDY3D_${{APPL}}.nc
+  setenv BNDY_CONC_1    "$path_bcon/BCON_${{VRSN}}_${{BCON_TYPE}}_${{APPL}} -v"
 endif
 
 if ( $BCON_TYPE == profile ) then
-  setenv BC_PROFILE $BLD/profiles/avprofile_cb6r3m_ae7_kmtbr_hemi2016_v53beta2_m3dry_col051_row068.csv
-  setenv MET_BDY_3D_FIN ${{dir_inner}}/METBDY3D_${{APPL}}.nc
-  setenv BNDY_CONC_1    "$OUTDIR/BCON_${{VRSN}}_${{BCON_TYPE}}_${{APPL}} -v"
+  set av = avprofile_cb6r3m_ae7_kmtbr_hemi2016_v53beta2_m3dry_col051_row068.csv
+  setenv BC_PROFILE $BLD/profiles/$av
+  setenv MET_BDY_3D_FIN ${{path_mcip2}}/METBDY3D_${{APPL}}.nc
+  setenv BNDY_CONC_1    "$path_bcon/BCON_${{VRSN}}_${{BCON_TYPE}}_${{APPL}} -v"
 endif
 
-if ( ! -d "$OUTDIR" ) mkdir -p $OUTDIR
+if ( ! -d "${{path_bcon}}" ) mkdir -p ${{path_bcon}}
 
 ls -l $BLD/$EXEC; size $BLD/$EXEC
 unlimit
@@ -119,9 +123,10 @@ limit
 
 time $BLD/$EXEC
 
-exit()""".format(compiler, year, month, mn, day, dom_size_outer,
-                 dom_size_inner, proj_name, dom_name, dir_proj, cmaq_ver,
-                 BCTYPE)
+exit()""".format(proj.compiler, year, month, mn, day, dom.size,
+                 dom_parent_size, proj.name, dom.name, proj.path.cmaq_app,
+                 proj.path.bcon, proj.path.mcip, proj.path.cctm,
+                 proj.cmaq_ver, type)
     return script
 
 
@@ -173,9 +178,15 @@ def _parse_args_():
     p.add_argument('-n', '--domain', nargs='+', type=int,
                    default=proj.get_dom_ids(),
                    help="domain Id(s). Default is all domains in the project.")
-    p.add_argument('-y', '--years', nargs='+', type=int, default=proj.years)
-    p.add_argument('-m', '--months', nargs='+', type=int, default=proj.months)
-    p.add_argument('-d', '--days', nargs='+', type=int, default=proj.days)
+    p.add_argument('-t', '--type', default='auto',
+                   choices=['auto', 'profile', 'regrid'],
+                   help="default is 'auto'.")
+    p.add_argument('-y', '--years', nargs='+', type=int, default=proj.years,
+                   help='default is all years in config file.')
+    p.add_argument('-m', '--months', nargs='+', type=int, default=proj.months,
+                   help='default is all months in config file.')
+    p.add_argument('-d', '--days', nargs='+', type=int, default=proj.days,
+                   help='default is all days in config file.')
     return p.parse_args()
 
 
@@ -232,9 +243,7 @@ if __name__ == "__main__":
                     sys.exit()
                 str_date = '{:04d}-{:02d}-{:02d}'.format(y, m, d)
                 day_str = 'Day: {}'.format(str_date)
-                script = get_script(y, m, d, dom_name, dom_outer_size,
-                                    dom.size, proj.name, proj.path.proj, BCTYPE,
-                                    proj.cmaq_ver, proj.compiler)
+                script = get_script(y, m, d, dom, a.type)
 
                 day_timer_start = timer()
                 err = None

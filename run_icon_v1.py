@@ -68,14 +68,14 @@ set path_icon = {}
 set path_mcip = {}
 set parent_dom_cctm_path = {}/${{dom_size_parent}}
 
-set VRSN     = v{}
 set ICTYPE   = {}
+set VRSN     = v{}
 
 set path_mcip1 = ${{path_mcip}}/${{dom_size_parent}}/${{dom_name}}/${{month_name}}
 set path_mcip2 = ${{path_mcip}}/${{dom_size}}/${{dom_name}}/${{month_name}}
 
-set ymd  = ${{year}}${{month}}${{day}}
-set APPL = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
+set ym       = ${{year}}${{month}}${{day}}
+set APPL     = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{ym}}
 
 set path_bld     = ${{cmaq_home}}/PREP/icon/scripts
 set BLD      = ${{path_bld}}/BLD_ICON_${{VRSN}}_${{compiler}}
@@ -106,7 +106,8 @@ if ( $ICON_TYPE == regrid ) then
     setenv CTM_CONC_1 ${{parent_dom_cctm_path}}/${{cctm_file}}
     set parent_m3d = METCRO3D_${{proj_name}}_${{dom_size_parent}}_${{YYYYMMDD}}.nc
     setenv MET_CRO_3D_CRS ${{path_mcip1}}/${{parent_m3d}}
-    setenv MET_CRO_3D_FIN ${{path_mcip2}}/METCRO3D_${{APPL}}.nc
+    set cur_m3d = METCRO3D_${{proj_name}}_${{dom_size}}_${{dom_name}}_${{YYYYMMDD}}.nc
+    setenv MET_CRO_3D_FIN ${{path_mcip2}}/${{cur_m3d}}
 endif
 
 if ( $ICON_TYPE == profile ) then
@@ -125,8 +126,8 @@ time $BLD/$EXEC
 
 exit()""".format(proj.compiler, year, month, mn, day, dom.size,
                  dom_parent_size, proj.name, dom.name, proj.path.cmaq_app,
-                 proj.path.icon, proj.path.mcip, proj.path.cctm,
-                 proj.cmaq_ver, type)
+                 proj.path.icon, proj.path.mcip, proj.path.cctm, type,
+                 proj.cmaq_ver)
     return script
 
 
@@ -178,8 +179,8 @@ def _parse_args_():
                    help='default is all years in config file.')
     p.add_argument('-m', '--months', nargs='+', type=int, default=proj.months,
                    help='default is all months in config file.')
-    p.add_argument('-d', '--days', nargs='+', type=int, default=1,
-                   help='default is 1.')
+    p.add_argument('-d', '--days', nargs='+', type=int, default=proj.days,
+                   help='default is all days in config file.')
     return p.parse_args()
 
 
@@ -197,19 +198,12 @@ if __name__ == "__main__":
         log.addHandler(ch)
 
     year, month, day = a.years, a.months, a.days
+    day = 2
     doms = [proj.get_dom_by_id(i) for i in a.domain]
     ym = expandgrid(year, month)  # Year and months
 
     log_dir = os.path.join(proj.path.logs, 'icon')
     os.makedirs(log_dir, exist_ok=True)
-
-    log.info('Creating icon files')
-    log.info('log dir: {}'.format(log_dir))
-
-    # make sure output dir exist
-    dir_out = join(proj.path.proj, 'icon')
-    os.makedirs(dir_out, exist_ok=True)
-    log.info('Output Dir: {}'.format(dir_out))
 
     time_fmt = '[Time: {:.2f} secs]'
     flag = ExitHelper()
