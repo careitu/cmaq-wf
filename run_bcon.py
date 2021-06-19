@@ -11,16 +11,11 @@ Python script to run bcon
 
 import os
 import sys
-import itertools
 import logging
 from os.path import join
 from timeit import default_timer as timer
 
 import calendar
-from collections.abc import Iterable
-from datetime import datetime as _dt
-from datetime import timezone as _tz
-
 from settings import setting as s
 
 proj = s.get_active_proj()

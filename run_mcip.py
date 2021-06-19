@@ -11,13 +11,11 @@ Python script to run mcip
 
 import os
 import sys
-import itertools
 import logging
 from os.path import join as _join
 from timeit import default_timer as timer
 
 import calendar
-from collections.abc import Iterable
 from datetime import datetime as _dt
 from datetime import timedelta as _td
 from datetime import timezone as _tz
@@ -83,7 +81,6 @@ set APPL       = ${{project_name}}_${{dom_size}}_${{dom_name}}_${{ymd}}
 set CoordName  = LambertConformal
 set GridName   = ${{dom_size}}
 
-set DataPath   = $CMAQ_DATA
 set InMetDir   = {}
 set InGeoDir   = {}
 

@@ -11,16 +11,11 @@ Python script to run mcip
 
 import os
 import sys
-import itertools
 import logging
 from os.path import join
 from timeit import default_timer as timer
 
 import calendar
-from collections.abc import Iterable
-from datetime import datetime as _dt
-from datetime import timezone as _tz
-
 from settings import setting as s
 
 proj = s.get_active_proj()
@@ -115,6 +110,7 @@ exit()""".format(proj.compiler, year, month, mn, day, dom.size,
                  proj.cmaq_ver, type)
     return script
 
+
 def _parse_args_():
     from _helper_functions_ import _create_argparser_
     DESCRIPTION = 'icon script\n\n' + \
@@ -122,7 +118,7 @@ def _parse_args_():
     DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
                                      proj.path.cmaq_app, proj.cmaq_ver)
     EPILOG = 'Example of use:\n' + \
-             ' %(prog)s -n 11 -y 2015 -m 2 -d 4 5 6\n'
+             ' %(prog)s -n 11 -y 2015 -m 2 -d 2\n'
     p = _create_argparser_(DESCRIPTION, EPILOG)
     p.add_argument('-n', '--domain', nargs='+', type=int,
                    default=proj.get_dom_ids(),
