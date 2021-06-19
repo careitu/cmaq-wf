@@ -40,6 +40,7 @@ log.addHandler(fh)
 
 
 def get_script(year, month, day, dom, type='auto'):
+    type = type.lower()
     type = 'regrid' if type == 'auto' and dom.__parent__ is not None \
         else 'profile'
     dom_parent_size = None if dom.__parent__ is None else dom.__parent__.size
@@ -48,12 +49,6 @@ def get_script(year, month, day, dom, type='auto'):
     script = """
 setenv compiler {}
 source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh ${{compiler}}
-
-if ( ! -e $CMAQ_DATA ) then
-  echo "$CMAQ_DATA path does not exist"
-  exit 1
-endif
-echo " "; echo " Input data path, CMAQ_DATA set to $CMAQ_DATA"; echo " "
 
 set year = {}
 set month = {:02d}

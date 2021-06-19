@@ -40,6 +40,7 @@ log.addHandler(fh)
 
 
 def get_script(year, month, day, dom, type='auto'):
+    type = type.lower()
     type = 'regrid' if type == 'auto' and dom.__parent__ is not None \
         else 'profile'
     dom_parent_size = None if dom.__parent__ is None else dom.__parent__.size
@@ -47,12 +48,6 @@ def get_script(year, month, day, dom, type='auto'):
     script = """
 setenv compiler {}
 source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh ${{compiler}}
-
-if ( ! -e $CMAQ_DATA ) then
-    echo "   $CMAQ_DATA path does not exist"
-    exit 1
-endif
-echo " "; echo " Input data path, CMAQ_DATA set to $CMAQ_DATA"; echo " "
 
 set year = {:04}
 set month = {:02d}
@@ -119,36 +114,6 @@ exit()""".format(proj.compiler, year, month, mn, day, dom.size,
                  proj.path.icon, proj.path.mcip, proj.path.cctm,
                  proj.cmaq_ver, type)
     return script
-
-
-# def expandgrid(*itrs):
-#     """ expand iterables """
-#     v = [x if isinstance(x, Iterable) else [x] for i, x in enumerate(itrs)]
-#     product = list(itertools.product(*v))
-#     x = list({'Var{}'.format(i + 1): [x[i] for x in product]
-#               for i in range(len(v))}.values())
-#     return list(map(tuple, zip(*x)))
-
-
-# def date_is_ok(year, month, day):
-#     """ Check (year, month, day) is a correct day """
-#     try:
-#         date_str = '{}-{}-{}'.format(year, month, day)
-#         _dt.strptime(date_str, '%Y-%m-%d').replace(tzinfo=_tz.utc)
-#         return True
-#     except:  # noqa: E722
-#         pass
-#     return False
-
-
-# def get_days(year, month, day=list(range(1, 32))):
-#     """ Return days in specific year and month """
-#     days = []
-#     for i in expandgrid(year, month, day):
-#         if date_is_ok(i[0], i[1], i[2]):
-#             days.append(i[2])
-#     return days
-
 
 def _parse_args_():
     from _helper_functions_ import _create_argparser_
