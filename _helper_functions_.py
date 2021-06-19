@@ -59,9 +59,11 @@ def _create_argparser_(description, epilog):
     """ Create an argparser object """
     file_py = _os.path.basename(_sys.argv[0])
     p = _ap.ArgumentParser(description=description,
-                           epilog=epilog.format(file_py),
+                           epilog=epilog.format(file_py), add_help=False,
                            formatter_class=_rtformatter)
-    p.add_argument('-v', '--version', help="Version", action="version",
+    p.add_argument('--help', action='help', default=_ap.SUPPRESS,
+                   help='Show this help message and exit.')
+    p.add_argument('--version', help="Version", action="version",
                    version='{} {}\n{} (c) {} {}'.format(file_py, __version__,
                                                         __license__, __year__,
                                                         __author__))
