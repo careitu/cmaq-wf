@@ -19,7 +19,6 @@ from timeit import default_timer as timer
 import calendar
 from collections.abc import Iterable
 from datetime import datetime as _dt
-from datetime import timedelta as _td
 from datetime import timezone as _tz
 
 from settings import setting as s
@@ -67,7 +66,7 @@ set dom_name = {}
 set cmaq_home = {}
 set OUTDIR = {}
 set dir_mcip = {}
-set parent_dom_cctm_path = {}/${{dom_size_par}}
+set dir_cctm = {}/${{dom_size_par}}
 
 set VRSN     = v{}
 set ICTYPE   = {}
@@ -99,7 +98,7 @@ setenv MET_CRO_3D_FIN ${{dir_mcip2}}/METCRO3D_${{APPL}}.nc
 if ( $ICON_TYPE == regrid ) then
   set cctm_file = CCTM_CONC_${{VRSN}}_${{compiler}}_${{proj_name}}_${{year}}
   set cctm_file = ${{cctm_file}}_${{dom_size_par}}_${{ymd}}.nc
-  setenv CTM_CONC_1 ${{parent_dom_cctm_path}}/${{cctm_file}}
+  setenv CTM_CONC_1 ${{dir_cctm}}/${{cctm_file}}
 endif
 
 if ( $ICON_TYPE == profile ) then
@@ -122,33 +121,33 @@ exit()""".format(proj.compiler, year, month, mn, day, dom.size,
     return script
 
 
-def expandgrid(*itrs):
-    """ expand iterables """
-    v = [x if isinstance(x, Iterable) else [x] for i, x in enumerate(itrs)]
-    product = list(itertools.product(*v))
-    x = list({'Var{}'.format(i + 1): [x[i] for x in product]
-              for i in range(len(v))}.values())
-    return list(map(tuple, zip(*x)))
+# def expandgrid(*itrs):
+#     """ expand iterables """
+#     v = [x if isinstance(x, Iterable) else [x] for i, x in enumerate(itrs)]
+#     product = list(itertools.product(*v))
+#     x = list({'Var{}'.format(i + 1): [x[i] for x in product]
+#               for i in range(len(v))}.values())
+#     return list(map(tuple, zip(*x)))
 
 
-def date_is_ok(year, month, day):
-    """ Check (year, month, day) is a correct day """
-    try:
-        date_str = '{}-{}-{}'.format(year, month, day)
-        _dt.strptime(date_str, '%Y-%m-%d').replace(tzinfo=_tz.utc)
-        return True
-    except:  # noqa: E722
-        pass
-    return False
+# def date_is_ok(year, month, day):
+#     """ Check (year, month, day) is a correct day """
+#     try:
+#         date_str = '{}-{}-{}'.format(year, month, day)
+#         _dt.strptime(date_str, '%Y-%m-%d').replace(tzinfo=_tz.utc)
+#         return True
+#     except:  # noqa: E722
+#         pass
+#     return False
 
 
-def get_days(year, month, day=list(range(1, 32))):
-    """ Return days in specific year and month """
-    days = []
-    for i in expandgrid(year, month, day):
-        if date_is_ok(i[0], i[1], i[2]):
-            days.append(i[2])
-    return days
+# def get_days(year, month, day=list(range(1, 32))):
+#     """ Return days in specific year and month """
+#     days = []
+#     for i in expandgrid(year, month, day):
+#         if date_is_ok(i[0], i[1], i[2]):
+#             days.append(i[2])
+#     return days
 
 
 def _parse_args_():
@@ -179,6 +178,9 @@ if __name__ == "__main__":
     from _helper_functions_ import ExitHelper
     from _helper_functions_ import ScriptError
     from _helper_functions_ import run_script_icon
+    from _helper_functions_ import expandgrid
+    from _helper_functions_ import get_days
+
     a = _parse_args_()
 
     verbose = a.print

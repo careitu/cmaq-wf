@@ -296,35 +296,6 @@ endif""".format(compiler, year, month, day, dom.size, dom.name, dom.id2,
     return script
 
 
-def expandgrid(*itrs):
-    """ expand iterables """
-    v = [x if isinstance(x, Iterable) else [x] for i, x in enumerate(itrs)]
-    product = list(itertools.product(*v))
-    x = list({'Var{}'.format(i + 1): [x[i] for x in product]
-              for i in range(len(v))}.values())
-    return list(map(tuple, zip(*x)))
-
-
-def date_is_ok(year, month, day):
-    """ Check (year, month, day) is a correct day """
-    try:
-        date_str = '{}-{}-{}'.format(year, month, day)
-        _dt.strptime(date_str, '%Y-%m-%d').replace(tzinfo=_tz.utc)
-        return True
-    except:  # noqa: E722
-        pass
-    return False
-
-
-def get_days(year, month, day=list(range(1, 32))):
-    """ Return days in specific year and month """
-    days = []
-    for i in expandgrid(year, month, day):
-        if date_is_ok(i[0], i[1], i[2]):
-            days.append(i[2])
-    return days
-
-
 def get_InMetFiles(days):
     """ get input meteorology file paths as list """
     fmt = wrfout_fmt + ' \\'
@@ -362,6 +333,8 @@ if __name__ == "__main__":
     from _helper_functions_ import ScriptError
     from _helper_functions_ import run_script_mcip
     from _helper_functions_ import del_files
+    from _helper_functions_ import expandgrid
+    from _helper_functions_ import get_days
 
     a = _parse_args_()
 

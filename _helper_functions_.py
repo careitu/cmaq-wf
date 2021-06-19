@@ -13,6 +13,11 @@ from os.path import join as _join
 from argparse import RawTextHelpFormatter as _rtformatter
 import signal
 
+import itertools
+from collections.abc import Iterable
+from datetime import datetime as _dt
+from datetime import timezone as _tz
+
 __version__ = '0.0.1.dev'
 __author__ = 'Ismail SEZEN'
 __email__ = 'sezenismail@gmail.com'
@@ -63,6 +68,35 @@ def _create_argparser_(description, epilog):
     p.add_argument('-p', '--print', action='store_true', default=False,
                    help='Verbose output')
     return p
+
+
+def expandgrid(*itrs):
+    """ expand iterables """
+    v = [x if isinstance(x, Iterable) else [x] for i, x in enumerate(itrs)]
+    product = list(itertools.product(*v))
+    x = list({'Var{}'.format(i + 1): [x[i] for x in product]
+              for i in range(len(v))}.values())
+    return list(map(tuple, zip(*x)))
+
+
+def date_is_ok(year, month, day):
+    """ Check (year, month, day) is a correct day """
+    try:
+        date_str = '{}-{}-{}'.format(year, month, day)
+        _dt.strptime(date_str, '%Y-%m-%d').replace(tzinfo=_tz.utc)
+        return True
+    except:  # noqa: E722
+        pass
+    return False
+
+
+def get_days(year, month, day=list(range(1, 32))):
+    """ Return days in specific year and month """
+    days = []
+    for i in expandgrid(year, month, day):
+        if date_is_ok(i[0], i[1], i[2]):
+            days.append(i[2])
+    return days
 
 
 def del_files(dir, files):
