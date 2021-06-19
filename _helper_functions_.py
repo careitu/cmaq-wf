@@ -81,19 +81,17 @@ def expandgrid(*itrs):
     return list(map(tuple, zip(*x)))
 
 
-def date_is_ok(year, month, day):
-    """ Check (year, month, day) is a correct day """
-    try:
-        date_str = '{}-{}-{}'.format(year, month, day)
-        _dt.strptime(date_str, '%Y-%m-%d').replace(tzinfo=_tz.utc)
-        return True
-    except:  # noqa: E722
-        pass
-    return False
-
-
 def get_days(year, month, day=list(range(1, 32))):
     """ Return days in specific year and month """
+    def date_is_ok(year, month, day):
+        """ Check (year, month, day) is a correct day """
+        try:
+            date_str = '{}-{}-{}'.format(year, month, day)
+            _dt.strptime(date_str, '%Y-%m-%d').replace(tzinfo=_tz.utc)
+            return True
+        except:  # noqa: E722
+            pass
+        return False
     days = []
     for i in expandgrid(year, month, day):
         if date_is_ok(i[0], i[1], i[2]):
