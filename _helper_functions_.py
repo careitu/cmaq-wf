@@ -192,4 +192,4 @@ def run_script_bcon(script, dom, str_date):
 
 
 def run_script_cctm(script, dom, str_date):
-    run_script(script, dom, str_date, 'cctm', b'XXXXX')
+    run_script(script, dom, str_date, 'cctm', b'CMAQ TIMING REPORT')
