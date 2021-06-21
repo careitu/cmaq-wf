@@ -57,6 +57,33 @@ class ExitHelper():
         return self._state
 
 
+def max_mult(n):
+    """ find maximum multipliers of an integer """
+    n = int(n)
+    import math
+    n_org = n
+    i = 2
+    fc = 1
+    dif_prev = 0
+    dif = math.inf
+    prev = None
+    while i * i <= n:
+        if n % i:
+            i += 1
+        else:
+            n //= i
+            fc *= i
+            dif_prev = dif
+            dif = abs(n - fc)
+            if dif > dif_prev:
+                return prev
+            else:
+                prev = (n, fc)
+    if prev is None:
+        return(max_mult(n_org - 1))
+    return prev
+
+
 def _create_argparser_(description, epilog):
     """ Create an argparser object """
     file_py = _os.path.basename(_sys.argv[0])
@@ -129,7 +156,9 @@ def run_script(script, dom, str_date, run_name='mcip',
     tmp_name = next(tf._get_candidate_names())
     fmt = '{}_{}_{}_{}'.format(run_name, dom.size, dom.name, str_date)
     file_script = '{}_{}.csh'.format(fmt, tmp_name)
-    file_script = _join(tf.gettempdir(), file_script)
+    tmp_dir = tf.gettempdir()
+    _os.chdir(tmp_dir)
+    file_script = _join(tmp_dir, file_script)
     file_log = _join(log_dir, '{}.log'.format(fmt))
     file_err = _join(log_dir, '{}.err'.format(fmt))
 
@@ -160,3 +189,7 @@ def run_script_icon(script, dom, str_date):
 
 def run_script_bcon(script, dom, str_date):
     run_script(script, dom, str_date, 'bcon', b'BCON completed successfully')
+
+
+def run_script_cctm(script, dom, str_date):
+    run_script(script, dom, str_date, 'cctm', b'XXXXX')
