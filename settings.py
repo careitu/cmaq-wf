@@ -228,8 +228,8 @@ class Setting(metaclass=_Singleton):
         tr = eu.append(2, 'tr', 12, 172, 90)
         tr.append(3, 'aegean', 4, 103, 94)
         tr.append(4, 'mediterranean', 4, 136, 97)
-        tr.append(5, 'central_blacksea', 4, 124, 100)
-        tr.append(6, 'south_central_anatolia', 4, 172, 115)
+        tr.append(5, 'south_central_anatolia', 4, 172, 115)
+        tr.append(6, 'central_blacksea', 4, 124, 100)
         #
         proj_name = 'test_cityair'
         dir_proj = _join('/mnt/disk3/projects/', proj_name)
