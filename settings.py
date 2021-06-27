@@ -367,6 +367,8 @@ def _parse_args_():
                    default=False, action="store_true")
     g.add_argument('-a', '--activate', metavar='PROJECT_NAME',
                    help="Activate a project")
+    g.add_argument('--path', metavar='PATH_NAME',
+                   help="Get path name for active project")
     g.add_argument('-c', '--create', help="create folders for active project",
                    default=False, action="store_true")
     return p.parse_args()
@@ -393,6 +395,12 @@ if __name__ == "__main__":
         Setting.defaults().save()
         print('Default settings were saved at {}'.format(__setting_file__))
 
+    if args.path is not None:
+        proj = setting.get_active_proj()
+        d = proj.path.__dict__
+        if args.path in d.keys():
+            print(proj.path.__dict__[args.path])
+
     if args.print:
         if setting.__loaded__:
             print(setting.encode())
@@ -401,5 +409,5 @@ if __name__ == "__main__":
             print(msg.format(_os.path.basename(__file__)))
 
     if not args.create and not args.print and \
-       args.activate is None and not args.default:
+       args.activate is None and args.path is None and not args.default:
         print('CWF Projects:\n{}'.format(setting))
