@@ -210,20 +210,22 @@ class Setting(metaclass=_Singleton):
         set = cls()
         set.reset()
         proj_name = 'cityair'
-        dir_proj = _join('/mnt/disk3/projects/', proj_name)
+        disc_fmt = '/mnt/{}'
+        dir_proj = _join(disc_fmt, 'projects', proj_name)
         dir_cmaq_app = '/mnt/ssd2/APPS/CMAQ'
         proj = set.new_proj('cityair', 'gcc', '532', [2015], [1, 2, 3],
                             list(range(1, 32)), active=False)
-        proj.path = Paths(proj=dir_proj,
+        proj.path = Paths(proj=dir_proj.format('disk1'),
                           cmaq_app=dir_cmaq_app,
-                          wps=_join(dir_proj, 'wps'),
-                          wrf=_join(dir_proj, 'wrf'),
-                          cctm=_join(dir_proj, 'cmaq'),
-                          mcip=_join(dir_proj, 'mcip'),
-                          icon=_join(dir_proj, 'icon'),
-                          bcon=_join(dir_proj, 'bcon'),
-                          emis=_join(dir_proj, 'emis'),
-                          logs=_join(dir_proj, 'logs'))
+                          wps=_join(dir_proj.format('disk1'), 'wps'),
+                          wrf=_join(dir_proj.format('disk1'), 'wrf'),
+                          land=_join(dir_proj.format('disk1'), 'land'),
+                          logs=_join(dir_proj.format('disk1'), 'logs'),
+                          mcip=_join(dir_proj.format('disk1'), 'mcip'),
+                          icon=_join(dir_proj.format('disk2'), 'icon'),
+                          bcon=_join(dir_proj.format('disk2'), 'bcon'),
+                          emis=_join(dir_proj.format('disk2'), 'emis'),
+                          cctm=_join(dir_proj.format('disk3'), 'cmaq'))
         eu = proj.append(1, 'eu', 36, 124, 90)
         tr = eu.append(2, 'tr', 12, 172, 90)
         tr.append(3, 'aegean', 4, 103, 94)
@@ -232,21 +234,22 @@ class Setting(metaclass=_Singleton):
         tr.append(6, 'central_blacksea', 4, 124, 100)
         #
         proj_name = 'test_cityair'
-        dir_proj = _join('/mnt/disk3/projects/', proj_name)
+        dir_proj = _join(disc_fmt, 'projects', proj_name)
         proj2 = _dcp(proj)
         proj2.active = True
         proj2.id = 2
         proj2.name = 'test_cityair'
-        proj2.path = Paths(proj=dir_proj,
+        proj2.path = Paths(proj=dir_proj.format('disk1'),
                            cmaq_app=dir_cmaq_app,
-                           wps=_join(dir_proj, 'WPS'),
-                           wrf=_join(dir_proj, 'WRF'),
-                           cctm=_join(dir_proj, 'cmaq'),
-                           mcip=_join(dir_proj, 'mcip'),
-                           icon=_join(dir_proj, 'icon'),
-                           bcon=_join(dir_proj, 'bcon'),
-                           emis=_join(dir_proj, 'emis'),
-                           logs=_join(dir_proj, 'logs'))
+                           wps=_join(dir_proj.format('disk1'), 'wps'),
+                           wrf=_join(dir_proj.format('disk1'), 'wrf'),
+                           land=_join(dir_proj.format('disk1'), 'land'),
+                           logs=_join(dir_proj.format('disk1'), 'logs'),
+                           mcip=_join(dir_proj.format('disk1'), 'mcip'),
+                           icon=_join(dir_proj.format('disk2'), 'icon'),
+                           bcon=_join(dir_proj.format('disk2'), 'bcon'),
+                           emis=_join(dir_proj.format('disk2'), 'emis'),
+                           cctm=_join(dir_proj.format('disk3'), 'cmaq'))
         set.projects[proj_name] = proj2
         return set
 
