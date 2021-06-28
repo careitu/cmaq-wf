@@ -225,6 +225,7 @@ class Setting(metaclass=_Singleton):
                           icon=_join(dir_proj.format('disk2'), 'icon'),
                           bcon=_join(dir_proj.format('disk2'), 'bcon'),
                           emis=_join(dir_proj.format('disk2'), 'emis'),
+                          post=_join(dir_proj.format('disk2'), 'post'),
                           cctm=_join(dir_proj.format('disk3'), 'cmaq'))
         eu = proj.append(1, 'eu', 36, 124, 90)
         tr = eu.append(2, 'tr', 12, 172, 90)
@@ -249,6 +250,7 @@ class Setting(metaclass=_Singleton):
                            icon=_join(dir_proj.format('disk2'), 'icon'),
                            bcon=_join(dir_proj.format('disk2'), 'bcon'),
                            emis=_join(dir_proj.format('disk2'), 'emis'),
+                           post=_join(dir_proj.format('disk2'), 'post'),
                            cctm=_join(dir_proj.format('disk3'), 'cmaq'))
         set.projects[proj_name] = proj2
         return set
