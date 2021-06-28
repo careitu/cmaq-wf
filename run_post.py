@@ -101,7 +101,7 @@ while ($TODAYJ <= $STOP_DAY )
   set DD = `date -ud "${{TODAYG}}" +%d`
   setenv OUTFILE ${{POSTDIR}}/COMBINE_ACONC_${{RUNID}}_$YYYY$MM.nc
 
-  appl_mcip = ${{proj_name}}_${{dom_size}}_${{dom_name}}_$YYY$MM01.nc
+  appl_mcip = ${{proj_name}}_${{dom_size}}_${{dom_name}}_$YYYY$MM01.nc
   setenv INFILE1 $CCTMOUTDIR/CCTM_ACONC_${{RUNID}}_$YYYY$MM$DD.nc
   setenv INFILE2 $METDIR/METCRO3D_${{appl_mcip}}
   setenv INFILE3 $CCTMOUTDIR/CCTM_APMDIAG_${{RUNID}}_$YYYY$MM$DD.nc
@@ -128,7 +128,7 @@ while ($TODAYJ <= $STOP_DAY )
   set DD = `date -ud "${{TODAYG}}" +%d`
   setenv OUTFILE ${{POSTDIR}}/COMBINE_DEP_${{RUNID}}_$YYYY$MM
 
-  appl_mcip = ${{proj_name}}_${{dom_size}}_${{dom_name}}_$YYY$MM01.nc
+  appl_mcip = ${{proj_name}}_${{dom_size}}_${{dom_name}}_$YYYY$MM01.nc
   setenv INFILE1 $CCTMOUTDIR/CCTM_DRYDEP_${{RUNID}}_$YYYY$MM$DD.nc
   setenv INFILE2 $CCTMOUTDIR/CCTM_WETDEP1_${{RUNID}}_$YYYY$MM$DD.nc
   setenv INFILE3 $METDIR/METCRO2D_${{appl_mcip}}
