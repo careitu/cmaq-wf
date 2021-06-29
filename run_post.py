@@ -99,10 +99,15 @@ while (${{TODAYJ}} <= ${{STOP_DAY}} )
   set YY = `date -ud "${{TODAYG}}" +%y`
   set MM = `date -ud "${{TODAYG}}" +%m`
   set DD = `date -ud "${{TODAYG}}" +%d`
-  setenv OUTFILE ${{POSTDIR}}/COMBINE_ACONC_${{RUNID}}_${{YYYY}}${{MM}}.nc
 
-  set mcip_date = ${{YYYY}}${{MM}}01
-  set appl_mcip = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{mcip_date}}.nc
+  set ym = ${{YYYY}}${{MM}}
+  set ymd = ${{ym}}01
+  set my_appl = ${{proj_name}}_${{dom_size}}_${{dom_name}}
+  set appl_mcip = ${{my_appl}}_${{ymd}}.nc
+
+  set appl_comb = ${{VRSN}}_${{compilerString}}_${{my_appl}}_${{ym}}.nc
+  setenv OUTFILE ${{POSTDIR}}/COMBINE_ACONC_${{appl_comb}}.nc
+
   setenv INFILE1 $CCTMOUTDIR/CCTM_ACONC_${{RUNID}}_${{YYYY}}${{MM}}${{DD}}.nc
   setenv INFILE2 $METDIR/METCRO3D_${{appl_mcip}}
   setenv INFILE3 $CCTMOUTDIR/CCTM_APMDIAG_${{RUNID}}_${{YYYY}}${{MM}}${{DD}}.nc
@@ -127,10 +132,15 @@ while ($TODAYJ <= $STOP_DAY )
   set YY = `date -ud "${{TODAYG}}" +%y`
   set MM = `date -ud "${{TODAYG}}" +%m`
   set DD = `date -ud "${{TODAYG}}" +%d`
-  setenv OUTFILE ${{POSTDIR}}/COMBINE_DEP_${{RUNID}}_${{YYYY}}${{MM}}
 
-  set mcip_date = ${{YYYY}}${{MM}}01
-  set appl_mcip = ${{proj_name}}_${{dom_size}}_${{dom_name}}_${{mcip_date}}.nc
+  set ym = ${{YYYY}}${{MM}}
+  set ymd = ${{ym}}01
+  set my_appl = ${{proj_name}}_${{dom_size}}_${{dom_name}}
+  set appl_mcip = ${{my_appl}}_${{ymd}}.nc
+
+  set appl_comb = ${{VRSN}}_${{compilerString}}_${{my_appl}}_${{ym}}.nc
+  setenv OUTFILE ${{POSTDIR}}/COMBINE_DEP_${{appl_comb}}.nc
+
   setenv INFILE1 $CCTMOUTDIR/CCTM_DRYDEP_${{RUNID}}_${{YYYY}}${{MM}}${{DD}}.nc
   setenv INFILE2 $CCTMOUTDIR/CCTM_WETDEP1_${{RUNID}}_${{YYYY}}${{MM}}${{DD}}.nc
   setenv INFILE3 $METDIR/METCRO2D_${{appl_mcip}}
