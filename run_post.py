@@ -106,7 +106,7 @@ while (${{TODAYJ}} <= ${{STOP_DAY}} )
   set appl_mcip = ${{my_appl}}_${{ymd}}.nc
 
   set appl_comb = ${{VRSN}}_${{compilerString}}_${{my_appl}}_${{ym}}.nc
-  setenv OUTFILE ${{POSTDIR}}/COMBINE_ACONC_${{appl_comb}}.nc
+  setenv OUTFILE ${{POSTDIR}}/COMBINE_ACONC_${{appl_comb}}
 
   setenv INFILE1 $CCTMOUTDIR/CCTM_ACONC_${{RUNID}}_${{YYYY}}${{MM}}${{DD}}.nc
   setenv INFILE2 $METDIR/METCRO3D_${{appl_mcip}}
@@ -138,7 +138,7 @@ while ($TODAYJ <= $STOP_DAY )
   set my_appl = ${{proj_name}}_${{dom_size}}_${{dom_name}}
   set appl_mcip = ${{my_appl}}_${{ymd}}.nc
 
-  set appl_comb = ${{VRSN}}_${{compilerString}}_${{my_appl}}_${{ym}}.nc
+  set appl_comb = ${{VRSN}}_${{compilerString}}_${{my_appl}}_${{ym}}
   setenv OUTFILE ${{POSTDIR}}/COMBINE_DEP_${{appl_comb}}.nc
 
   setenv INFILE1 $CCTMOUTDIR/CCTM_DRYDEP_${{RUNID}}_${{YYYY}}${{MM}}${{DD}}.nc
@@ -185,7 +185,7 @@ def _parse_args_():
 if __name__ == "__main__":
     from _helper_functions_ import ExitHelper
     from _helper_functions_ import ScriptError
-    from _helper_functions_ import run_script_cctm
+    from _helper_functions_ import run_script_combine
     from _helper_functions_ import expandgrid
     from _helper_functions_ import get_days
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
             err = None
             try:
-                run_script_cctm(script, dom, str_month)
+                run_script_combine(script, dom, str_month)
             except ScriptError as error:
                 err = error
             month_timer_end = timer()
