@@ -64,6 +64,17 @@ class Domain:
                     break
         return dom
 
+    def get_dom_by_name(self, name):
+        dom = None
+        if self.name == name:
+            dom = self
+        if dom is None and len(self.doms) > 0:
+            for v in self.doms.values():
+                dom = v.get_dom_by_name(name)
+                if dom is not None:
+                    break
+        return dom
+
     def get_sub_ids(self):
         ids = [self.id]
         if len(self.doms) > 0:
@@ -138,6 +149,15 @@ class Project:
         if dom is None and len(self.doms) > 0:
             for v in self.doms.values():
                 dom = v.get_dom_by_id(id)
+                if dom is not None:
+                    break
+        return dom
+
+    def get_dom_by_name(self, name):
+        dom = None
+        if dom is None and len(self.doms) > 0:
+            for v in self.doms.values():
+                dom = v.get_dom_by_name(name)
                 if dom is not None:
                     break
         return dom
