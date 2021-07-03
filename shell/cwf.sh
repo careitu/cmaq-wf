@@ -7,8 +7,9 @@
 # Change directory to defined CWF folder
 function goto() {
   path=$(settings.py --path $1)
-  if [ $# -eq 2 ] then
-    path=$path/$2
+  if [ $# -eq 2 ]
+  then
+    path="$path/$2"
   fi
   cd $path
 }
