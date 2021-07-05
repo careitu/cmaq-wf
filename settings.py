@@ -95,7 +95,7 @@ class Domain:
                    dic['ncol'], dic['nrow'], dic['doms'])
 
 
-class Paths():
+class Paths:
     def __init__(self, **kwargs):
         self.type = 'Paths'
         self.__dict__.update(kwargs)
@@ -111,20 +111,36 @@ class Paths():
         return cls(**dic)
 
 
+class Pollutant:
+    def __init__(self, name, long_name, unit):
+        self.type = 'Paths'
+        self.name = name
+        self.long_name = long_name
+        self.unit = unit
+
+    def __repr__(self):
+        s = '({}) {} {}'.format(self.name, self.long_name, self.unit)
+        return s
+
+    @classmethod
+    def fromDict(cls, dic):
+        return cls(dic['name'], dic['long_name'], dic['unit'])
+
+
 class Project:
     def __init__(self, id, name, compiler, cmaq_ver, years, months, days,
-                 paths=None, active=False, doms=None):
+                 pols=None, paths=None, active=False, doms=None):
         self.id = id
         self.type = 'Project'
         self.active = active
         self.name = name
         self.compiler = compiler
         self.cmaq_ver = cmaq_ver
+        self.pols = {} if pols is None else pols
         self.path = paths
         self.years = years
         self.months = months
         self.days = days
-        self.doms = doms
         self.doms = {} if doms is None else doms
         self.__setting__ = None
 
@@ -139,7 +155,7 @@ class Project:
     def fromDict(cls, dic):
         return cls(dic['id'], dic['name'], dic['compiler'], dic['cmaq_ver'],
                    dic['years'], dic['months'], dic['days'], dic['path'],
-                   dic['active'], dic['doms'])
+                   dic['pols'], dic['active'], dic['doms'])
 
     def activate(self):
         self.__setting__.activate(self.name)
