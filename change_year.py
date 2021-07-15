@@ -42,7 +42,7 @@ def change_year_in_filename(fname, year):
 
 def _parse_args_():
     from _helper_functions_ import _create_argparser_
-    DESCRIPTION = 'Change year in netcdf file\n\n' + \
+    DESCRIPTION = 'Change year in netcdf files\n\n' + \
                   'Project: {}\n  Path: {}\nCMAQ\n  Path: {}\n  version: {}'
     DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
                                      proj.path.cmaq_app, proj.cmaq_ver)
@@ -69,7 +69,7 @@ if __name__ == "__main__":
             d = a.dir
 
     print('\nDirectory is "{}"'.format(d))
-    user_input = input('Confirm? [Y/N] ')
+    user_input = input('CONFIRM? [Y/N] ')
 
     if user_input.lower() in ('y', 'yes'):
         for f in getListOfFiles(d):
