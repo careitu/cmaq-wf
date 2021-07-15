@@ -77,3 +77,4 @@ if __name__ == "__main__":
                 if fp.lower() in f.lower():
                     change_year(f, a.year)
                     os.rename(f, change_year_in_filename(f, a.year))
+                    print('{} completed.'.format(f))
