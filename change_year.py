@@ -76,5 +76,4 @@ if __name__ == "__main__":
             for fp in a.file_pattern:
                 if fp.lower() in f.lower():
                     change_year(f, a.year)
-                    new_f = change_year_in_filename(f, a.year)
-                    os.rename(f, new_f)
+                    os.rename(f, change_year_in_filename(f, a.year))
