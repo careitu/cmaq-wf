@@ -112,10 +112,11 @@ class Paths:
 
 
 class Pollutant:
-    def __init__(self, name, long_name, unit):
+    def __init__(self, name, long_name, label, unit):
         self.type = 'Paths'
         self.name = name
         self.long_name = long_name
+        self.label = label
         self.unit = unit
 
     def __repr__(self):
@@ -124,7 +125,7 @@ class Pollutant:
 
     @classmethod
     def fromDict(cls, dic):
-        return cls(dic['name'], dic['long_name'], dic['unit'])
+        return cls(dic['name'], dic['long_name'], dic['label'], dic['unit'])
 
 
 class Project:
@@ -155,7 +156,7 @@ class Project:
     def fromDict(cls, dic):
         return cls(dic['id'], dic['name'], dic['compiler'], dic['cmaq_ver'],
                    dic['years'], dic['months'], dic['days'], dic['path'],
-                   dic['active'], dic['doms'])
+                   dic['pols'], dic['active'], dic['doms'])
 
     def activate(self):
         self.__setting__.activate(self.name)
@@ -251,6 +252,15 @@ class Setting(metaclass=_Singleton):
         dir_cmaq_app = '/mnt/ssd2/APPS/CMAQ'
         proj = set.new_proj('cityair', 'gcc', '532', [2015], [1, 2, 3],
                             list(range(1, 32)), active=False)
+        proj.pols = {
+            'co': Pollutant('CO', 'carbon monoxide', '$CO$', '$(\\mu g/m^3)$'),
+            'nox': Pollutant('NOX', 'nitrous oxide', '$NO_x$',
+                             '$(\\mu g/m^3)$'),
+            'o3': Pollutant('O3', 'Ozone', '$O_3$', '$(\\mu g/m^3)$'),
+            'pm10': Pollutant('PM10', 'Particulate Matter 10', r'$PM_{10}$',
+                              '$(\\mu g/m^3)$'),
+            'pm25': Pollutant('PM25_TOT', 'Particulate Matter 2.5',
+                              r'$PM_{2.5}$', '$(\\mu g/m^3)$')}
         proj.path = Paths(proj=dir_proj.format('disk1'),
                           cmaq_app=dir_cmaq_app,
                           wps=_join(dir_proj.format('disk1'), 'wps'),
@@ -270,7 +280,7 @@ class Setting(metaclass=_Singleton):
         tr.append(5, 'south_central_anatolia', 4, 172, 115)
         tr.append(6, 'central_blacksea', 4, 124, 100)
         #
-        proj_name = 'test_cityair'
+        proj_name = 'cityair_future'
         dir_proj = _join(disc_fmt, 'projects', proj_name)
         proj2 = _dcp(proj)
         proj2.active = True
@@ -287,7 +297,7 @@ class Setting(metaclass=_Singleton):
                            bcon=_join(dir_proj.format('disk2'), 'bcon'),
                            emis=_join(dir_proj.format('disk2'), 'emis'),
                            post=_join(dir_proj.format('disk2'), 'post'),
-                           cctm=_join(dir_proj.format('disk3'), 'cmaq'))
+                           cctm=_join(dir_proj.format('disk4'), 'cmaq'))
         set.projects[proj_name] = proj2
         return set
 
@@ -296,9 +306,9 @@ class Setting(metaclass=_Singleton):
         self.projects[proj.name] = proj
 
     def new_proj(self, name, compiler, cmaq_ver, years,
-                 months, days, paths=None, active=False, doms=None):
+                 months, days, pols=None, paths=None, active=False, doms=None):
         proj = Project(None, name, compiler, cmaq_ver, years, months, days,
-                       paths, active, doms)
+                       pols, paths, active, doms)
         proj.__setting__ = self
         self.append(proj)
         return proj
