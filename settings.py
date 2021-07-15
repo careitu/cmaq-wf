@@ -113,7 +113,7 @@ class Paths:
 
 class Pollutant:
     def __init__(self, name, long_name, label, unit):
-        self.type = 'Paths'
+        self.type = 'Pollutant'
         self.name = name
         self.long_name = long_name
         self.label = label
@@ -155,8 +155,8 @@ class Project:
     @classmethod
     def fromDict(cls, dic):
         return cls(dic['id'], dic['name'], dic['compiler'], dic['cmaq_ver'],
-                   dic['years'], dic['months'], dic['days'], dic['path'],
-                   dic['pols'], dic['active'], dic['doms'])
+                   dic['years'], dic['months'], dic['days'], dic['pols'],
+                   dic['path'], dic['active'], dic['doms'])
 
     def activate(self):
         self.__setting__.activate(self.name)
@@ -285,7 +285,8 @@ class Setting(metaclass=_Singleton):
         proj2 = _dcp(proj)
         proj2.active = True
         proj2.id = 2
-        proj2.name = 'test_cityair'
+        proj2.name = 'cityair_future'
+        proj2.years = [2025]
         proj2.path = Paths(proj=dir_proj.format('disk1'),
                            cmaq_app=dir_cmaq_app,
                            wps=_join(dir_proj.format('disk1'), 'wps'),
@@ -348,6 +349,8 @@ class Setting(metaclass=_Singleton):
                 obj.__loaded__ = True
         except FileNotFoundError:
             obj = Setting()
+        except KeyError:
+            obj = Setting()
         except _json.decoder.JSONDecodeError:
             print('Settings cannot be loaded.')
             obj = Setting()
@@ -379,6 +382,8 @@ class Setting(metaclass=_Singleton):
                 v = Project.fromDict(dic)
             elif t == 'Setting':
                 v = Setting.fromDict(dic)
+            elif t == 'Pollutant':
+                v = Pollutant.fromDict(dic)
             elif t == 'Paths':
                 v = Paths.fromDict(dic)
             elif t == 'Log':
