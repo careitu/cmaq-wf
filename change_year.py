@@ -8,7 +8,6 @@ Change year in CMAQ netcdf files
 Python script to change year in CMAQ netcdf files
 """
 import os
-from netCDF4 import Dataset
 from settings import setting as s
 
 proj = s.get_active_proj()
@@ -25,15 +24,20 @@ def getListOfFiles(dirName):
 
 
 def change_year(nc_file, new_year, var_name='TFLAG'):
+    from netCDF4 import Dataset
     nco = Dataset(nc_file, 'r+')
-    v = nco.variables[var_name][:]
-    s = v.shape
+    s = nco.variables[var_name][:].shape
     for i in range(s[0]):
         for j in range(s[1]):
-            val = v[i][j][0]
-            # nco[var_name][i, j, 0] = val + (new_year - val // 1000) * 1000
+            val = nco[var_name][i, j, 0]
             nco[var_name][i, j, 0] = new_year * 1000 + val % 1000
     nco.close()
+
+
+def change_year_in_filename(fname, year):
+    import re
+    match = re.search(r'\d{4}\d{2}\d{2}', fname).group()
+    return fname.replace(match, str(year) + match[4:])
 
 
 def _parse_args_():
@@ -43,7 +47,7 @@ def _parse_args_():
     DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
                                      proj.path.cmaq_app, proj.cmaq_ver)
     EPILOG = 'Example of use:\n' + \
-             ' %(prog)s -y 2025 file_name.nc\n'
+             ' %(prog)s -y 2025 -d mcip pattern\n'
     p = _create_argparser_(DESCRIPTION, EPILOG)
     p.add_argument('-d', '--dir', type=str, default=os.getcwd(),
                    help='Directory to search. Default is current directory')
@@ -52,11 +56,6 @@ def _parse_args_():
     p.add_argument('-y', '--year', type=int, default=2025,
                    help='default is 2025.')
     return p.parse_args()
-
-
-var_name = 'TFLAG'
-nc_file = 'METCRO2D_cityair_4km_aegean_20150102.nc'
-new_year = 2025
 
 
 if __name__ == "__main__":
@@ -76,16 +75,6 @@ if __name__ == "__main__":
         for f in getListOfFiles(d):
             for fp in a.file_pattern:
                 if fp.lower() in f.lower():
-                    print(f)
-
-
-
-    # for f in a.files:
-    #     if f in proj.path.__dict__.keys():
-    #         f = proj.path.__dict__[f]
-    #         files = getListOfFiles(f)
-    #         for k in files:
-    #             print(k)
-    #     else:
-    #         print(f)
-        # change_year(f, a.year)
+                    change_year(f, a.year)
+                    new_f = change_year_in_filename(f, a.year)
+                    os.rename(f, new_f)
