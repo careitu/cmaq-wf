@@ -112,7 +112,7 @@ def lambert_ticks(ax, ticks, axis='x'):
     set_ticklabels([axiss.get_major_formatter()(tick) for tick in ticklabels])
 
 
-def plot_map(doms, path, rast_zorder=None):
+def plot_map(doms, path, rast_zorder=None, cb_limits=None):
     import matplotlib.pyplot as plt
     for dom_name, d in doms.items():
         for i, a in enumerate(d.transpose('pol_name', ...)):
@@ -138,13 +138,26 @@ def plot_map(doms, path, rast_zorder=None):
 
             # with warnings.catch_warnings():
             #     warnings.simplefilter("ignore")
-            p = x.plot(x='Longitude', y='Latitude', col='month',
-                       robust=True, col_wrap=3, size=4,
-                       aspect=x.shape[2] / x.shape[1],
-                       cbar_kwargs=cbar_kws, cmap='twilight',
-                       subplot_kws=dict(projection=ccrs_proj),
-                       transform=ccrs.PlateCarree(), zorder=0,
-                       alpha=1.0)
+            if cb_limits is None:
+                p = x.plot(x='Longitude', y='Latitude', col='month',
+                           robust=True, col_wrap=3, size=4,
+                           aspect=x.shape[2] / x.shape[1],
+                           cbar_kwargs=cbar_kws, cmap='twilight',
+                           subplot_kws=dict(projection=ccrs_proj),
+                           transform=ccrs.PlateCarree(), zorder=0,
+                           alpha=1.0)
+            else:
+                vmin = min(cb_limits[pol_name])
+                vmax = max(cb_limits[pol_name])
+                p = x.plot(x='Longitude', y='Latitude', col='month',
+                           robust=True, col_wrap=3, size=4,
+                           aspect=x.shape[2] / x.shape[1],
+                           cbar_kwargs=cbar_kws, cmap='twilight',
+                           vmin=vmin, vmax=vmax,
+                           subplot_kws=dict(projection=ccrs_proj),
+                           transform=ccrs.PlateCarree(), zorder=0,
+                           alpha=1.0)
+
 
             for i, ax in enumerate(p.axes.flat):
                 ax.set_title(facet_labels[i])
@@ -253,21 +266,29 @@ def calc_stat(dom_names, pol_names, months, stat_day='mean', stat_mon='mean'):
     return doms
 
 
-POL_NAMES = ['NH3', 'NOX', 'O3', 'CO', 'SO2_UGM3', 'PM10', 'PM25_TOT']
-DOM_NAMES = ['aegean', 'central_blacksea', 'south_central_anatolia']
-POL_LABELS = ['$NH_3$', '$NO_x$', '$O_3$', '$CO$', '$SO_2$', r'$PM_{10}$',
+POL_NAMES = ['NOX', 'O3', 'CO', 'SO2_UGM3', 'PM10', 'PM25_TOT']
+DOM_NAMES = ['aegean', 'central_blacksea', 'mediterranean',
+             'south_central_anatolia']
+POL_LABELS = ['$NO_x$', '$O_3$', '$CO$', '$SO_2$', r'$PM_{10}$',
               r'$PM_{2.5}$']
-POL_UNITS = ['$(\\mu g/m^3)$', '$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
+POL_UNITS = ['$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
              '$(\\mu g/m^3)$', '$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
              '$(\\mu g/m^3)$']
+CB_LIMITS = {'CO': [50, 100],
+             'NOX': [0, 10],
+             'O3': [0, 60],
+             'PM10': [0, 60],
+             'PM25_TOT': [0, 30],
+             'SO2_UGM3': [0, 10]}
 year = 2015
 months = [1, 2, 3]
 
-doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean', stat_mon='mean')
-plot_map(doms, 'plots_mean')
+doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean',
+                 stat_mon='mean')
+plot_map(doms, 'plots_mean', cb_limits=CB_LIMITS)
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean', stat_mon='max')
-plot_map(doms, 'plots_daily_max')
+plot_map(doms, 'plots_daily_max', cb_limits=CB_LIMITS)
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='max', stat_mon='max')
-plot_map(doms, 'plots_hourly_max')
+plot_map(doms, 'plots_hourly_max', cb_limits=CB_LIMITS)
