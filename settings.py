@@ -155,7 +155,7 @@ class Project:
     def fromDict(cls, dic):
         return cls(dic['id'], dic['name'], dic['compiler'], dic['cmaq_ver'],
                    dic['years'], dic['months'], dic['days'], dic['path'],
-                   dic['pols'], dic['active'], dic['doms'])
+                   dic['active'], dic['doms'])
 
     def activate(self):
         self.__setting__.activate(self.name)
