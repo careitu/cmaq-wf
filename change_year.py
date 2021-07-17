@@ -34,10 +34,18 @@ def change_year(nc_file, new_year, var_name='TFLAG'):
     nco.close()
 
 
+def file_has_date_pattern(fname):
+    import re
+    match = re.search(r'\d{4}\d{2}\d{2}', fname)
+    return match is not None
+
+
 def change_year_in_filename(fname, year):
     import re
-    match = re.search(r'\d{4}\d{2}\d{2}', fname).group()
-    return fname.replace(match, str(year) + match[4:])
+    if file_has_date_pattern(fname):
+        match = re.search(r'\d{4}\d{2}\d{2}', fname).group()
+        fname = fname.replace(match, str(year) + match[4:])
+        return fname
 
 
 def _parse_args_():
@@ -73,8 +81,12 @@ if __name__ == "__main__":
 
     if user_input.lower() in ('y', 'yes'):
         for f in getListOfFiles(d):
+            if file_has_date_pattern(f):
+                new_fname = change_year_in_filename(f, a.year)
+                os.rename(f, new_fname)
+                print('"{}"" renamed to "{}"'.format(f, new_fname))
+                f = new_fname
             for fp in a.file_pattern:
                 if fp.lower() in f.lower():
                     change_year(f, a.year)
-                    os.rename(f, change_year_in_filename(f, a.year))
-                    print('{} completed.'.format(f))
+                    print('* Year is changed in file "{}"'.format(f))
