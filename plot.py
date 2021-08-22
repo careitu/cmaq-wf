@@ -113,6 +113,7 @@ def lambert_ticks(ax, ticks, axis='x'):
 
 
 def plot_map(doms, path, rast_zorder=None, cb_limits=None):
+    import cmocean
     import matplotlib.pyplot as plt
     for dom_name, d in doms.items():
         for i, a in enumerate(d.transpose('pol_name', ...)):
