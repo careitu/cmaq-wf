@@ -286,7 +286,7 @@ while ($TODAYJ <= $STOP_DAY )
   setenv CMAQ_MASKS $SZpath/ocean_${{dom_size}}_${{proj_name}}_${{dom_name}}.nc
 
   setenv N_EMIS_GR 1
-  set EMISfile  = ${{dom_name}}_4_CB6_aero7_${{YYYYMMDD}}.nc
+  set EMISfile  = ${{dom_name}}_${{dom_size}}_CB6_aero7_${{YYYYMMDD}}.nc
   setenv GR_EMIS_001 ${{EMISpath}}/${{EMISfile}}
   setenv GR_EMIS_LAB_001 GRIDDED_EMIS
   setenv GR_EM_SYM_DATE_001 F
