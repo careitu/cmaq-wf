@@ -23,6 +23,7 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import shapely.geometry as sgeom
 from copy import copy
 import string
+import cmocean
 
 from settings import setting as s
 
@@ -112,8 +113,7 @@ def lambert_ticks(ax, ticks, axis='x'):
     set_ticklabels([axiss.get_major_formatter()(tick) for tick in ticklabels])
 
 
-def plot_map(doms, path, rast_zorder=None, cb_limits=None):
-    import cmocean
+def plot_map(doms, path, cmap='twilight', rast_zorder=None, cb_limits=None):
     import matplotlib.pyplot as plt
     for dom_name, d in doms.items():
         for i, a in enumerate(d.transpose('pol_name', ...)):
@@ -143,7 +143,7 @@ def plot_map(doms, path, rast_zorder=None, cb_limits=None):
                 p = x.plot(x='Longitude', y='Latitude', col='month',
                            robust=True, col_wrap=3, size=4,
                            aspect=x.shape[2] / x.shape[1],
-                           cbar_kwargs=cbar_kws, cmap='twilight',
+                           cbar_kwargs=cbar_kws, cmap=cmap,
                            subplot_kws=dict(projection=ccrs_proj),
                            transform=ccrs.PlateCarree(), zorder=0,
                            alpha=1.0)
@@ -153,7 +153,7 @@ def plot_map(doms, path, rast_zorder=None, cb_limits=None):
                 p = x.plot(x='Longitude', y='Latitude', col='month',
                            robust=True, col_wrap=3, size=4,
                            aspect=x.shape[2] / x.shape[1],
-                           cbar_kwargs=cbar_kws, cmap='twilight',
+                           cbar_kwargs=cbar_kws, cmap=cmap,
                            vmin=vmin, vmax=vmax,
                            subplot_kws=dict(projection=ccrs_proj),
                            transform=ccrs.PlateCarree(), zorder=0,
@@ -275,21 +275,35 @@ POL_LABELS = ['$NO_x$', '$O_3$', '$CO$', '$SO_2$', r'$PM_{10}$',
 POL_UNITS = ['$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
              '$(\\mu g/m^3)$', '$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
              '$(\\mu g/m^3)$']
-CB_LIMITS = {'CO': [50, 100],
-             'NOX': [0, 10],
-             'O3': [0, 60],
-             'PM10': [0, 60],
-             'PM25_TOT': [0, 30],
-             'SO2_UGM3': [0, 10]}
 year = 2015
 months = [1, 2, 3]
+cmap = cmocean.cm.thermal_r
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean',
                  stat_mon='mean')
-plot_map(doms, 'plots_mean', cb_limits=CB_LIMITS)
+CB_LIMITS_mean = {'CO': [0, 100],
+                  'NOX': [0, 10],
+                  'O3': [0, 60],
+                  'PM10': [0, 80],
+                  'PM25_TOT': [0, 40],
+                  'SO2_UGM3': [0, 20]}
+plot_map(doms, 'plots_mean', cmap, cb_limits=CB_LIMITS_mean)
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean', stat_mon='max')
-plot_map(doms, 'plots_daily_max', cb_limits=CB_LIMITS)
+CB_LIMITS_daily_max = {'CO': [0, 200],
+                       'NOX': [0, 20],
+                       'O3': [0, 80],
+                       'PM10': [0, 200],
+                       'PM25_TOT': [0, 100],
+                       'SO2_UGM3': [0, 30]}
+plot_map(doms, 'plots_daily_max', cmap, cb_limits=CB_LIMITS_daily_max)
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='max', stat_mon='max')
-plot_map(doms, 'plots_hourly_max', cb_limits=CB_LIMITS)
+CB_LIMITS_hourly_max = {'CO': [0, 400],
+                        'NOX': [0, 40],
+                        'O3': [0, 80],
+                        'PM10': [0, 300],
+                        'PM25_TOT': [0, 150],
+                        'SO2_UGM3': [0, 50]}
+plot_map(doms, 'plots_hourly_max', cmap, cb_limits=CB_LIMITS_hourly_max)
+
