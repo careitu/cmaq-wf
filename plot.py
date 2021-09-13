@@ -24,8 +24,11 @@ import shapely.geometry as sgeom
 from copy import copy
 import string
 import cmocean
-
 from settings import setting as s
+import matplotlib
+matplotlib.use('Agg')
+
+proj = s.get_active_proj()
 
 proj = s.get_active_proj()
 
@@ -113,16 +116,17 @@ def lambert_ticks(ax, ticks, axis='x'):
     set_ticklabels([axiss.get_major_formatter()(tick) for tick in ticklabels])
 
 
-def plot_map(doms, path, cmap='twilight', rast_zorder=None, cb_limits=None):
+def plot_map(doms, path, suffix='', cmap='twilight', rast_zorder=None,
+             cb_limits=None):
     import matplotlib.pyplot as plt
+    import matplotlib.transforms as mtransforms
     for dom_name, d in doms.items():
         for i, a in enumerate(d.transpose('pol_name', ...)):
             pol_name = a.coords['pol_name'].values.tolist()
             x = a.drop(labels=['pol_name'])
 
-            lat, lon, month = (i[1].values for i in x.coords.items())
-            facet_labels = ['{}) {}'.format(string.ascii_lowercase[i - 1],
-                                            calendar.month_name[i].title())
+            _, _, month = (i[1].values for i in x.coords.items())
+            facet_labels = ['{}'.format(calendar.month_name[i].title())
                             for i in month]
 
             # central_longitude=24, central_latitude=45,
@@ -134,6 +138,10 @@ def plot_map(doms, path, cmap='twilight', rast_zorder=None, cb_limits=None):
                             pad=0.02, shrink=0.8)
             res = '10m'
             grid_interval = 1
+            if dom_name == 'tr':
+                grid_interval = 2
+            elif dom_name == 'eu':
+                grid_interval = 3
             xticks = list(np.arange(-180, 180, grid_interval))
             yticks = list(np.arange(-90, 90, grid_interval))
 
@@ -159,9 +167,16 @@ def plot_map(doms, path, cmap='twilight', rast_zorder=None, cb_limits=None):
                            transform=ccrs.PlateCarree(), zorder=0,
                            alpha=1.0)
 
-
             for i, ax in enumerate(p.axes.flat):
                 ax.set_title(facet_labels[i])
+                trans = mtransforms.ScaledTranslation(
+                    10 / 72, -5 / 72, ax.figure.dpi_scale_trans)
+                ax.text(-0.02, 1.005, '{})'.format(string.ascii_lowercase[i]),
+                        transform=ax.transAxes + trans,
+                        fontsize='large', verticalalignment='top',
+                        fontfamily='serif',
+                        bbox=dict(facecolor='none', edgecolor='none',
+                                  pad=2.5))
                 ax.xaxis.set_ticklabels([])
                 ax.yaxis.set_ticklabels([])
                 ax.coastlines(resolution=res, alpha=0.6)
@@ -198,7 +213,7 @@ def plot_map(doms, path, cmap='twilight', rast_zorder=None, cb_limits=None):
             # p.fig.show()
 
             _mkdir(path, exist_ok=True)
-            file_name = '_'.join(('plot', dom_name, pol_name)) + '.pdf'
+            file_name = '_'.join(('plot', dom_name, pol_name, suffix)) + '.pdf'
             p.fig.savefig(_join(path, file_name), bbox_inches='tight')
             plt.close(p.fig)
             print(file_name)
@@ -214,7 +229,7 @@ def calc_stat(dom_names, pol_names, months, stat_day='mean', stat_mon='mean'):
     doms = {i: None for i in dom_names}
     for dn in dom_names:
         pols = {i: None for i in pol_names}
-        dom = proj.doms['eu'].doms['tr'].doms[dn]
+        dom = proj.get_dom_by_name(dn)
         for m in months:
             month_name = calendar.month_name[m].lower()
             DIR_MCIP = _join(proj.path.mcip, '{}km'.format(dom.size), dom.name,
@@ -268,7 +283,7 @@ def calc_stat(dom_names, pol_names, months, stat_day='mean', stat_mon='mean'):
 
 
 POL_NAMES = ['NOX', 'O3', 'CO', 'SO2_UGM3', 'PM10', 'PM25_TOT']
-DOM_NAMES = ['aegean', 'central_blacksea', 'mediterranean',
+DOM_NAMES = ['tr', 'aegean', 'central_blacksea', 'mediterranean',
              'south_central_anatolia']
 POL_LABELS = ['$NO_x$', '$O_3$', '$CO$', '$SO_2$', r'$PM_{10}$',
               r'$PM_{2.5}$']
@@ -278,32 +293,63 @@ POL_UNITS = ['$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
 year = 2015
 months = [1, 2, 3]
 cmap = cmocean.cm.thermal_r
+# cmap = 'twilight'
+NO_LIMIT = False
+
+cmap_str = cmap if isinstance(cmap, str) else cmap.name
+no_limit_str = 'no_limit' if NO_LIMIT else ''
+pth = _join('plots_single', '_'.join(('plots', cmap_str, no_limit_str)))
+
+if NO_LIMIT:
+    CB_LIMITS_mean = None
+    CB_LIMITS_daily_max = None
+    CB_LIMITS_hourly_max = None
+else:
+    # CB_LIMITS_mean = {'CO': [0, 100],
+    #                   'NOX': [0, 10],
+    #                   'O3': [0, 60],
+    #                   'PM10': [0, 80],
+    #                   'PM25_TOT': [0, 40],
+    #                   'SO2_UGM3': [0, 20]}
+    # CB_LIMITS_daily_max = {'CO': [0, 200],
+    #                        'NOX': [0, 20],
+    #                        'O3': [0, 80],
+    #                        'PM10': [0, 200],
+    #                        'PM25_TOT': [0, 100],
+    #                        'SO2_UGM3': [0, 30]}
+    # CB_LIMITS_hourly_max = {'CO': [0, 400],
+    #                         'NOX': [0, 40],
+    #                         'O3': [0, 80],
+    #                         'PM10': [0, 300],
+    #                         'PM25_TOT': [0, 150],
+    #                         'SO2_UGM3': [0, 50]}
+    CB_LIMITS_mean = {'CO': [70, 100],
+                      'NOX': [0, 10],
+                      'O3': [0, 60],
+                      'PM10': [0, 80],
+                      'PM25_TOT': [0, 40],
+                      'SO2_UGM3': [0, 20]}
+    CB_LIMITS_daily_max = {'CO': [0, 200],
+                           'NOX': [0, 20],
+                           'O3': [0, 80],
+                           'PM10': [0, 200],
+                           'PM25_TOT': [0, 100],
+                           'SO2_UGM3': [0, 30]}
+    CB_LIMITS_hourly_max = {'CO': [0, 400],
+                            'NOX': [0, 40],
+                            'O3': [0, 80],
+                            'PM10': [0, 300],
+                            'PM25_TOT': [0, 150],
+                            'SO2_UGM3': [0, 50]}
+
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean',
                  stat_mon='mean')
-CB_LIMITS_mean = {'CO': [0, 100],
-                  'NOX': [0, 10],
-                  'O3': [0, 60],
-                  'PM10': [0, 80],
-                  'PM25_TOT': [0, 40],
-                  'SO2_UGM3': [0, 20]}
-plot_map(doms, 'plots_mean', cmap, cb_limits=CB_LIMITS_mean)
+plot_map(doms, pth, 'mean', cmap, cb_limits=CB_LIMITS_mean)
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean', stat_mon='max')
-CB_LIMITS_daily_max = {'CO': [0, 200],
-                       'NOX': [0, 20],
-                       'O3': [0, 80],
-                       'PM10': [0, 200],
-                       'PM25_TOT': [0, 100],
-                       'SO2_UGM3': [0, 30]}
-plot_map(doms, 'plots_daily_max', cmap, cb_limits=CB_LIMITS_daily_max)
+plot_map(doms, pth, 'daily_max', cmap, cb_limits=CB_LIMITS_daily_max)
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='max', stat_mon='max')
-CB_LIMITS_hourly_max = {'CO': [0, 400],
-                        'NOX': [0, 40],
-                        'O3': [0, 80],
-                        'PM10': [0, 300],
-                        'PM25_TOT': [0, 150],
-                        'SO2_UGM3': [0, 50]}
-plot_map(doms, 'plots_hourly_max', cmap, cb_limits=CB_LIMITS_hourly_max)
+plot_map(doms, pth, 'hourly_max', cmap, cb_limits=CB_LIMITS_hourly_max)
 
