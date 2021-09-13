@@ -582,6 +582,8 @@ def _parse_args_():
     p.add_argument('-n', '--domain', nargs='+', type=int,
                    default=proj.get_dom_ids(),
                    help="domain Id(s). Default is all domains in the project.")
+    p.add_argument('-nc', '--ncores', type=int, default=-1,
+                   help='Number of cores. Default is all cores.')
     p.add_argument('--ictype', default='auto',
                    choices=['auto', 'profile', 'regrid'],
                    help="default is 'auto'.")
@@ -614,6 +616,9 @@ if __name__ == "__main__":
         ch.setLevel(logging.DEBUG)
         ch.setFormatter(formatter)
         log.addHandler(ch)
+
+      if a.ncores < 1:
+         a.ncores = 'auto'
 
     year, month, start_day, end_day = a.years, a.months, a.start_day, a.end_day
     day = [start_day] + [end_day + 1]
@@ -651,7 +656,7 @@ if __name__ == "__main__":
             str_month = '{:04d}-{:02d}'.format(y, m)
 
             script = get_script(y, m, start_day, end_day, dom, proc_type='mpi',
-                                new_start=True, ncores='auto',
+                                new_start=True, ncores=a.ncores,
                                 icon_type=a.ictype, bcon_type=a.bctype)
 
             month_timer_start = timer()
