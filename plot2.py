@@ -12,17 +12,17 @@ from os import makedirs as _mkdir
 from os.path import join as _join
 import calendar
 from datetime import datetime as _dt
+import string
+from copy import copy
 import numpy as np
 import pandas as pd
-from netCDF4 import Dataset
+from netCDF4 import Dataset  # pylint: disable=E0611
 import xarray as xr
 # from xarray.plot import pcolormesh as pcm
 import cartopy.crs as ccrs
 # import cartopy.feature as cfeature
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import shapely.geometry as sgeom
-from copy import copy
-import string
 import cmocean
 from settings import setting as s
 
@@ -62,6 +62,40 @@ def get_latlon_from_cro(nc_cro_file, lat_name='LAT', lon_name='LON'):
     nco.close()
 
     return lon, lat
+
+
+def get_lat_lon(dom, month):
+    """
+    Get lat lon from domain
+    """
+    fmt_cro = 'GRIDCRO2D_{}_{}km_{}_{}{:02d}01.nc'
+    month_name = calendar.month_name[month].lower()
+    DIR_MCIP = _join(proj.path.mcip, '{}km'.format(dom.size),
+                     dom.name, month_name + '_monthly')
+    CRO_FILE = fmt_cro.format(proj.name, dom.size, dom.name,
+                              year, month)
+    nc_cro_file = _join(DIR_MCIP, CRO_FILE)
+    return get_latlon_from_cro(nc_cro_file)
+
+
+def get_dates_from_nco(nco):
+    """ Get dates from NCO """
+    TFLAG = np.squeeze(nco.variables['TFLAG'][:])
+    tf = TFLAG.reshape(TFLAG.shape[0] * TFLAG.shape[1], 2)
+    tf = np.unique(tf, axis=0)
+    dates = ['{} {:06d}'.format(i[0], i[1]) for i in tf]
+    dates = [_dt.strptime(i, '%Y%j %H%M%S') for i in dates]
+    return pd.date_range(str(min(dates)), str(max(dates)),
+                         freq='H')
+
+
+def get_days_from_nco(nco):
+    """ Get days from NCO file """
+    TFLAG = np.squeeze(nco.variables['TFLAG'][:])
+    tf = TFLAG.reshape(TFLAG.shape[0] * TFLAG.shape[1], 2)
+    tf = np.unique(tf, axis=0)
+    days = [_dt.strptime(str(i[0]), '%Y%j') for i in tf]
+    return pd.date_range(min(days), max(days))
 
 
 def lambert_ticks(ax, ticks, axis='x'):
@@ -137,8 +171,11 @@ def lambert_ticks(ax, ticks, axis='x'):
 
 def plot_map(doms, path, cmap='twilight', rast_zorder=None,
              cb_limits=None):
-    import matplotlib.pyplot as plt
-    import matplotlib.transforms as mtransforms
+    """
+    Plot datasets in doms object.
+    """
+    import matplotlib.pyplot as plt  # pylint: disable=C0415
+    import matplotlib.transforms as mtransforms  # pylint: disable=C0415
     for dom_name, d in doms.items():
         for i, a in enumerate(d.transpose('pol_name', ...)):
             pol_name = a.coords['pol_name'].values.tolist()
@@ -210,6 +247,7 @@ def plot_map(doms, path, cmap='twilight', rast_zorder=None,
                 #                facecolor=("peachpuff"))
                 p.fig.canvas.draw()
 
+                # pylint: disable=C0415
                 gl = ax.gridlines(xlocs=xticks, ylocs=yticks,
                                   dms=True, color='indigo', alpha=0.5,
                                   linestyle='--')
@@ -241,116 +279,118 @@ def plot_map(doms, path, cmap='twilight', rast_zorder=None,
             print(file_name)
 
 
-def calc_stat(dom_names, pol_names, year, months,
-              stats=['mean', 'daily_max', 'hourly_max']):
+def calc_stat(dom_names, pol_names, year, months, stats=None):
+    """
+    Calculate statistics for domains.
+    """
     STATS = {'mean': {'day': 'mean', 'mon': 'mean'},
              'daily_max': {'day': 'mean', 'mon': 'max'},
              'hourly_max': {'day': 'max', 'mon': 'max'}}
+    stats = stats or ['mean', 'daily_max', 'hourly_max']
     if not isinstance(stats, list):
         stats = list(stats)
     for st in stats:
         assert st in list(STATS.keys()), \
             'stats arg must be mean, daily_max or hourly_max.'
 
-    fmt_cro = 'GRIDCRO2D_{}_{}km_{}_{}{:02d}01.nc'
-    fmt_com = 'COMBINE_ACONC_v{}_{}_{}_{}km_{}_{}{:02d}.nc'
-
+    statistics = ['mean', 'max', 'min']
     for k in stats:
-        assert STATS[k]['day'] in ['mean', 'max', 'min'], \
+        assert STATS[k]['day'] in statistics, \
             'stat_day arg must be mean, max or min.'
-        assert STATS[k]['mon'] in ['mean', 'max', 'min'], \
+        assert STATS[k]['mon'] in statistics, \
             'stat_mon arg must be mean, max or min.'
 
-    doms = {i: None for i in dom_names}
-    for dn in dom_names:
+    def get_monthly_stats(x, stats, days):
+        xm2 = None
+        for k in stats:
+            stat_day = STATS[k]['day']
+            stat_mon = STATS[k]['mon']
+            xd = getattr(x.groupby('time.day'), stat_day)()
+            xd = xd.assign_coords(day=days)
+            xm = getattr(xd.groupby('day.month'), stat_mon)()
+            xm2 = xm if xm2 is None else xr.concat([xm2, xm], dim='stat')
+        return xm2.assign_coords(stat=stats)
+
+    def get_monthly_stats_for_file(dom_name, pol_names, months):
+        fmt_com = 'COMBINE_ACONC_v{}_{}_{}_{}km_{}_{}{:02d}.nc'
         pols = {i: None for i in pol_names}
-        dom = proj.get_dom_by_name(dn)
+        dom = proj.get_dom_by_name(dom_name)
         for m in months:
-            month_name = calendar.month_name[m].lower()
-            DIR_MCIP = _join(proj.path.mcip, '{}km'.format(dom.size),
-                             dom.name, month_name + '_monthly')
-            DIR_POST = proj.path.post
+            nco = Dataset(_join(proj.path.post,
+                          fmt_com.format(
+                            proj.cmaq_ver, proj.compiler,
+                            proj.name, dom.size, dom.name,
+                            year, m)))
+            lon, lat = get_lat_lon(dom, m)
+            dates = get_dates_from_nco(nco)
+            days = get_days_from_nco(nco)
 
-            CRO_FILE = fmt_cro.format(proj.name, dom.size, dom.name,
-                                      year, m)
-            COM_FILE = fmt_com.format(proj.cmaq_ver, proj.compiler,
-                                      proj.name, dom.size, dom.name,
-                                      year, m)
-
-            nc_cro_file = _join(DIR_MCIP, CRO_FILE)
-            nc_com_file = _join(DIR_POST, COM_FILE)
-            lon, lat = get_latlon_from_cro(nc_cro_file)
-            nco = Dataset(nc_com_file)
-
-            for pol_name in pol_names:
-                TFLAG = np.squeeze(nco.variables['TFLAG'][:])
-                poll = np.squeeze(nco.variables[pol_name][:])
-                tf = TFLAG.reshape(TFLAG.shape[0] * TFLAG.shape[1], 2)
-                tf = np.unique(tf, axis=0)
-                dates = ['{} {:06d}'.format(i[0], i[1]) for i in tf]
-                dates = [_dt.strptime(i, '%Y%j %H%M%S') for i in dates]
-                dates = pd.date_range(str(min(dates)), str(max(dates)),
-                                      freq='H')
-
-                x = xr.DataArray(np.squeeze(poll[:, :, :]),
+            for pn in pols.keys():
+                x = xr.DataArray(np.squeeze(nco.variables[pn][:]),
                                  dims=['t', 'y', 'x'],
                                  coords={'time': (('t'), dates),
                                          'Latitude': (('y', 'x'), lat),
                                          'Longitude': (('y', 'x'), lon)})
-                xm2 = None
-                for k in stats:
-                    stat_day = STATS[k]['day']
-                    stat_mon = STATS[k]['mon']
+                x = get_monthly_stats(x, stats, days)
+                pols[pn] = x if pols[pn] is None else xr.concat([pols[pn], x],
+                                                                dim='month')
 
-                    xd = getattr(x.groupby('time.day'), stat_day)()
-
-                    days = [_dt.strptime(str(i[0]), '%Y%j') for i in tf]
-                    days = pd.date_range(min(days), max(days))
-                    xd = xd.assign_coords(day=days)
-                    xd.attrs['long_name'] = pol_name
-
-                    xm = getattr(xd.groupby('day.month'), stat_mon)()
-
-                    if xm2 is None:
-                        xm2 = xm
-                    else:
-                        xm2 = xr.concat([xm2, xm], dim='stat')
-                xm2 = xm2.assign_coords(stat=stats)
-
-                if pols[pol_name] is None:
-                    pols[pol_name] = xm2
-                else:
-                    pols[pol_name] = xr.concat([pols[pol_name], xm2],
-                                               dim='month')
             nco.close()
+        return pols
 
-        doms[dn] = xr.concat([i for i in pols.values()],
+    doms = {i: None for i in dom_names}
+    for dn in doms.keys():
+        pols = get_monthly_stats_for_file(dn, pol_names, months)
+        doms[dn] = xr.concat(list(pols.values()),
                              pd.Index(list(pols.keys()), name="pol_name"))
         doms[dn].attrs['units'] = 'ugm-3'
     return doms
+
+
+def print_stats(doms):
+    """
+    Print statistics for domains
+    """
+    for dom_name, x in doms.items():
+        print(dom_name)
+        for _, x in enumerate(x.transpose('pol_name', ...)):
+            pol_name = x.coords['pol_name'].values.tolist()
+            print(pol_name)
+            x = x.drop(labels=['pol_name'])
+            for _, x in enumerate(x.transpose('stat', ...)):
+                stat = x.coords['stat'].values.tolist()
+                print(' ' + stat)
+                x = x.drop(labels=['stat'])
+                for _, x in enumerate(x.transpose('month', ...)):
+                    month = x.coords['month'].values.tolist()
+                    print('  ' + str(month))
+                    x = x.drop(labels=['month'])
+                    print('   Min  : {:.2f}'.format(float(x.min())))
+                    print('   Mean : {:.2f}'.format(float(x.mean())))
+                    print('   Max  : {:.2f}'.format(float(x.max())))
 
 
 # c = mcolors.ColorConverter().to_rgb
 # rvb = make_colormap(
 #     [c('red'), c('violet'), 0.33, c('violet'), c('blue'), 0.66, c('blue')])
 
-POL_NAMES = ['PM10', 'PM25_TOT', 'CO', 'O3', 'SO2_UGM3', 'NOX']
+POL_NAMES = ['NOX', 'O3', 'CO', 'SO2_UGM3', 'PM10', 'PM25_TOT']
 DOM_NAMES = ['tr', 'aegean', 'central_blacksea', 'mediterranean',
              'south_central_anatolia']
-POL_LABELS = [r'$PM_{10}$', r'$PM_{2.5}$', '$CO$', '$O_3$', '$SO_2$', '$NO_x$']
+POL_LABELS = ['$NO_x$', '$O_3$', '$CO$', '$SO_2$', r'$PM_{10}$',
+              r'$PM_{2.5}$']
 POL_UNITS = ['$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
              '$(\\mu g/m^3)$', '$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
              '$(\\mu g/m^3)$']
 year = 2015
 months = [1, 2, 3]
-cmap = cmocean.cm.thermal_r
-
-cmap = lscmap.from_list("",
-                        ['#E6E1E7', '#d9ca92', '#77c0ab', '#7581C0', '#633A90',
-                         '#3B2044',
-                         '#7F3660', '#b266a9', '#928149', '#D3B8A5', '#E6E1E7'])
-cmap.name = 'mycmap'
+# cmap = cmocean.cm.thermal_r  # pylint: disable=E1101
 # cmap = 'twilight'
+cmap = lscmap.from_list("",
+                        ['#E6E1E7', '#d9ca92', '#77c0ab', '#7581C0',
+                         '#633A90', '#3B2044', '#7F3660', '#b266a9',
+                         '#928149', '#D3B8A5', '#E6E1E7'])
+cmap.name = 'mycmap'
 NO_LIMIT = True
 
 cmap_str = cmap if isinstance(cmap, str) else cmap.name
@@ -368,5 +408,4 @@ else:
                  'SO2_UGM3': [0, 20]}
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, year, months)
-print("Doms calculated")
-plot_map(doms, pth, cmap=cmap, cb_limits=CB_LIMITS)
+plot_map(doms, pth, cmap, cb_limits=CB_LIMITS)
