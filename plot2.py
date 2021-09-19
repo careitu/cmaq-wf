@@ -16,19 +16,40 @@ import numpy as np
 import pandas as pd
 from netCDF4 import Dataset
 import xarray as xr
-from xarray.plot import pcolormesh as pcm
+# from xarray.plot import pcolormesh as pcm
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature
+# import cartopy.feature as cfeature
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import shapely.geometry as sgeom
 from copy import copy
 import string
 import cmocean
 from settings import setting as s
+
 import matplotlib
+import matplotlib.colors as mcolors
+from matplotlib.colors import LinearSegmentedColormap as lscmap
 matplotlib.use('Agg')
 
+
 proj = s.get_active_proj()
+
+
+def make_colormap(seq):
+    """Return a LinearSegmentedColormap
+    seq: a sequence of floats and RGB-tuples. The floats should be increasing
+    and in the interval (0,1).
+    """
+    seq = [(None,) * 3, 0.0] + list(seq) + [1.0, (None,) * 3]
+    cdict = {'red': [], 'green': [], 'blue': []}
+    for i, item in enumerate(seq):
+        if isinstance(item, float):
+            r1, g1, b1 = seq[i - 1]
+            r2, g2, b2 = seq[i + 1]
+            cdict['red'].append([item, r1, r2])
+            cdict['green'].append([item, g1, g2])
+            cdict['blue'].append([item, b1, b2])
+    return mcolors.LinearSegmentedColormap('CustomMap', cdict)
 
 
 def get_latlon_from_cro(nc_cro_file, lat_name='LAT', lon_name='LON'):
@@ -309,17 +330,26 @@ def calc_stat(dom_names, pol_names, year, months,
     return doms
 
 
-POL_NAMES = ['NOX', 'O3', 'CO', 'SO2_UGM3', 'PM10', 'PM25_TOT']
+# c = mcolors.ColorConverter().to_rgb
+# rvb = make_colormap(
+#     [c('red'), c('violet'), 0.33, c('violet'), c('blue'), 0.66, c('blue')])
+
+POL_NAMES = ['PM10', 'PM25_TOT', 'CO', 'O3', 'SO2_UGM3', 'NOX']
 DOM_NAMES = ['tr', 'aegean', 'central_blacksea', 'mediterranean',
              'south_central_anatolia']
-POL_LABELS = ['$NO_x$', '$O_3$', '$CO$', '$SO_2$', r'$PM_{10}$',
-              r'$PM_{2.5}$']
+POL_LABELS = [r'$PM_{10}$', r'$PM_{2.5}$', '$CO$', '$O_3$', '$SO_2$', '$NO_x$']
 POL_UNITS = ['$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
              '$(\\mu g/m^3)$', '$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
              '$(\\mu g/m^3)$']
 year = 2015
 months = [1, 2, 3]
 cmap = cmocean.cm.thermal_r
+
+cmap = lscmap.from_list("",
+                        ['#E6E1E7', '#d9ca92', '#77c0ab', '#7581C0', '#633A90',
+                         '#3B2044',
+                         '#7F3660', '#b266a9', '#928149', '#D3B8A5', '#E6E1E7'])
+cmap.name = 'mycmap'
 # cmap = 'twilight'
 NO_LIMIT = True
 
@@ -338,4 +368,5 @@ else:
                  'SO2_UGM3': [0, 20]}
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, year, months)
-plot_map(doms, pth, cb_limits=CB_LIMITS)
+print("Doms calculated")
+plot_map(doms, pth, cmap=cmap, cb_limits=CB_LIMITS)
