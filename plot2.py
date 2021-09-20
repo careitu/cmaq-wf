@@ -169,8 +169,8 @@ def lambert_ticks(ax, ticks, axis='x'):
     set_ticklabels([axiss.get_major_formatter()(tick) for tick in ticklabels])
 
 
-def plot_map(doms, path, cmap='twilight', rast_zorder=None,
-             cb_limits=None):
+def plot_map(doms, path, cmap='twilight', cb_levels=None,
+             rast_zorder=None, cb_limits=None):
     """
     Plot datasets in doms object.
     """
@@ -201,11 +201,12 @@ def plot_map(doms, path, cmap='twilight', rast_zorder=None,
 
             # with warnings.catch_warnings():
             #     warnings.simplefilter("ignore")
+            levels = None if cb_levels is None else cb_levels[pol_name]
             if cb_limits is None:
                 p = x.plot(x='Longitude', y='Latitude', col='month',
                            row='stat', robust=True, size=4,
                            aspect=x.shape[3] / x.shape[2],
-                           cbar_kwargs=cbar_kws, cmap=cmap,
+                           cbar_kwargs=cbar_kws, cmap=cmap, levels=levels,
                            subplot_kws=dict(projection=ccrs_proj),
                            transform=ccrs.PlateCarree(), zorder=0,
                            alpha=1.0)
@@ -215,7 +216,7 @@ def plot_map(doms, path, cmap='twilight', rast_zorder=None,
                 p = x.plot(x='Longitude', y='Latitude', col='month',
                            row='stat', robust=True, size=4,
                            aspect=x.shape[3] / x.shape[2],
-                           cbar_kwargs=cbar_kws, cmap=cmap,
+                           cbar_kwargs=cbar_kws, cmap=cmap, levels=levels,
                            vmin=vmin, vmax=vmax,
                            subplot_kws=dict(projection=ccrs_proj),
                            transform=ccrs.PlateCarree(), zorder=0,
@@ -391,7 +392,12 @@ cmap = lscmap.from_list("",
                          '#633A90', '#3B2044', '#7F3660', '#b266a9',
                          '#928149', '#D3B8A5', '#E6E1E7'])
 cmap.name = 'mycmap'
+
+cmap = matplotlib.colors.ListedColormap(['#7dede6', '#71c9ac', '#efe661',
+                                         '#ee5c57', '#8b1a34', '#742c7d'])
+cmap.name = 'discrete'
 NO_LIMIT = True
+LEVELS = True
 
 cmap_str = cmap if isinstance(cmap, str) else cmap.name
 no_limit_str = 'no_limit' if NO_LIMIT else ''
@@ -407,5 +413,15 @@ else:
                  'PM25_TOT': [0, 40],
                  'SO2_UGM3': [0, 20]}
 
+if LEVELS:
+    CB_LEVELS = {'CO': [0, 10, 20, 25, 50, 75, 800],
+                 'NOX': [0, 40, 90, 120, 230, 340, 1000],
+                 'O3': [0, 50, 100, 130, 240, 380, 800],
+                 'PM10': [0, 20, 40, 50, 100, 150, 1200],
+                 'PM25_TOT': [0, 10, 20, 25, 50, 75, 800],
+                 'SO2_UGM3': [0, 100, 200, 350, 500, 750, 1250]}
+else:
+    CB_LEVELS = None
+
 doms = calc_stat(DOM_NAMES, POL_NAMES, year, months)
-plot_map(doms, pth, cmap, cb_limits=CB_LIMITS)
+plot_map(doms, pth, cmap, CB_LEVELS, cb_limits=CB_LIMITS)
