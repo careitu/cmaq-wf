@@ -82,6 +82,7 @@ set CURDIR = $PWD
 source /mnt/ssd2/APPS/CMAQ/config_cmaq.csh $compiler $compilerVrsn
 cd $CURDIR
 
+set year = {}
 set month_name = {}
 set proj_name = {}
 set dom_name = {}
@@ -93,7 +94,7 @@ set BCTYPE = {}
 set VRSN = v{}
 set PROC = {}
 set MECH = cb6r3_ae7_aq
-set APPL = ${{proj_name}}_2015_${{dom_size}}
+set APPL = ${{proj_name}}_${{year}}_${{dom_size}}
 
 setenv RUNID  ${{VRSN}}_${{compilerString}}_${{APPL}}
 
@@ -563,10 +564,10 @@ end
 echo "     Total Time = ${{RTMTOT}}"
 echo "      Avg. Time = ${{RTMAVG}}"
 
-exit""".format(proj.compiler, mn, proj.name, dom.name, dom.size, icon_type,
-               bcon_type, proj.cmaq_ver, PROC, OUTDIR, proj.path.proj,
-               proj.path.mcip, NEW_START, START_DATE, END_DATE, NPCOL, NPROW,
-               proj.path.icon, proj.path.bcon, proj.path.emis)
+exit""".format(proj.compiler, year, mn, proj.name, dom.name, dom.size,
+               icon_type, bcon_type, proj.cmaq_ver, PROC, OUTDIR,
+               proj.path.proj, proj.path.mcip, NEW_START, START_DATE, END_DATE,
+               NPCOL, NPROW, proj.path.icon, proj.path.bcon, proj.path.emis)
     return script
 
 
