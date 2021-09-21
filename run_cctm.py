@@ -618,8 +618,8 @@ if __name__ == "__main__":
         ch.setFormatter(formatter)
         log.addHandler(ch)
 
-      if a.ncores < 1:
-         a.ncores = 'auto'
+    if a.ncores < 1:
+        a.ncores = 'auto'
 
     year, month, start_day, end_day = a.years, a.months, a.start_day, a.end_day
     day = [start_day] + [end_day + 1]
