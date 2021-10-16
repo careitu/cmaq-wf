@@ -41,6 +41,7 @@ def get_script(year, month, day, dom, type='auto'):
     type = 'regrid' if type == 'auto' and dom.__parent__ is not None \
         else 'profile'
     dom_parent_size = None if dom.__parent__ is None else dom.__parent__.size
+    dom_parent_name = None if dom.__parent__ is None else dom.__parent__.name
     mn = calendar.month_name[month].lower()
     os.makedirs(proj.path.bcon, exist_ok=True)
     script = """
@@ -53,13 +54,14 @@ set month_name = {}
 set day = {:02d}
 set dom_size = {}km
 set dom_size_par = {}km
+set dom_name_par = {}
 set proj_name = {}
 set dom_name = {}
 
 set cmaq_home = {}
 set OUTDIR = {}
 set dir_mcip = {}
-set dir_cctm = {}/${{dom_size_par}}
+set dir_cctm = {}/${{dom_size_par}}/${{dom_name_par}}
 
 set VRSN = v{}
 set BCTYPE = {}
@@ -108,9 +110,9 @@ limit
 time $BLD/$EXEC
 
 exit()""".format(proj.compiler, year, month, mn, day, dom.size,
-                 dom_parent_size, proj.name, dom.name, proj.path.cmaq_app,
-                 proj.path.bcon, proj.path.mcip, proj.path.cctm,
-                 proj.cmaq_ver, type)
+                 dom_parent_size, dom_parent_name, proj.name, dom.name,
+                 proj.path.cmaq_app, proj.path.bcon, proj.path.mcip,
+                 proj.path.cctm, proj.cmaq_ver, type)
     return script
 
 
