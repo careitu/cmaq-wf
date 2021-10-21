@@ -24,7 +24,7 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import shapely.geometry as sgeom
 from copy import copy
 import string
-import cmocean
+# import cmocean
 from settings import setting as s
 import matplotlib
 import matplotlib.pyplot as plt
