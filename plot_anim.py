@@ -444,7 +444,7 @@ for dn in DOM_NAMES:
             Writer = animation.writers['ffmpeg']
             writer = Writer(fps=10, metadata=dict(artist='isezen'),
                             bitrate=192000)
-            anim = FuncAnimation(fig, update, frames=2014, interval=5)
+            anim = FuncAnimation(fig, update, frames=2061, interval=5)
 
             anim.save(file_name, writer=writer,
                       dpi=100, savefig_kwargs={'facecolor': '#ffffff'})
