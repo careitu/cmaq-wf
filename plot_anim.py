@@ -7,30 +7,38 @@ Create plots for CMAQ
 ~~~~~~~
 Python script to create plots
 """
-import warnings
-from os.path import isfile as _isfile
-from os import makedirs as _mkdir
-from os.path import join as _join
 import calendar
-from datetime import datetime as _dt
 import numpy as np
-import pandas as pd
-from netCDF4 import Dataset
-import xarray as xr
-from xarray.plot import pcolormesh as pcm
+import warnings
+
+from datetime import datetime as _dt
+from os import makedirs as _mkdir
+from os.path import isfile as _isfile
+from os.path import join as _join
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import pandas as pd
 import shapely.geometry as sgeom
-from copy import copy
 import string
+import xarray as xr
+
+from cartopy.mpl.gridliner import LATITUDE_FORMATTER
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER
+from copy import copy
+from netCDF4 import Dataset
+from xarray.plot import pcolormesh as pcm
 # import cmocean
-from settings import setting as s
+
 import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib.animation import FuncAnimation
 # matplotlib.use('Agg')
+from settings import setting as s
+
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+
+from matplotlib.animation import FuncAnimation
+
 
 proj = s.get_active_proj()
 
@@ -437,7 +445,7 @@ for dn in DOM_NAMES:
             Writer = animation.writers['ffmpeg']
             writer = Writer(fps=10, metadata=dict(artist='isezen'),
                             bitrate=192000)
-            anim = FuncAnimation(fig, update, frames=2014, interval=5)
+            anim = FuncAnimation(fig, update, frames=2061, interval=5)
 
             anim.save(file_name, writer=writer,
                       dpi=100, savefig_kwargs={'facecolor': '#ffffff'})
