@@ -82,6 +82,13 @@ class Domain:
                 ids = ids + v.get_sub_ids()
         return ids
 
+    def get_sub_names(self):
+        names = [self.name]
+        if len(self.doms) > 0:
+            for v in self.doms.values():
+                names = names + v.get_sub_names()
+        return names
+
     def append(self, id2, name, size, ncol, nrow):
         ln = len(self.doms) + 1
         dom = Domain(int(f"{self.id}{ln}"), id2, name, size, ncol, nrow)
@@ -184,6 +191,12 @@ class Project:
         for v in self.doms.values():
             ids = ids + v.get_sub_ids()
         return ids
+
+    def get_dom_names(self):
+        names = []
+        for v in self.doms.values():
+            names = names + v.get_sub_names()
+        return names
 
     def append(self, id2, name, size, ncol, nrow):
         ln = len(self.doms) + 1
@@ -333,6 +346,16 @@ class Setting(metaclass=_Singleton):
         if len(projs) == 0:
             raise ValueError("You don't have any active project")
         return projs[keys[0]]
+
+    def get_proj_by_name(self, name):
+        if isinstance(name, list):
+            return {p: self.get_proj_by_name(p) for p in name}
+        if name not in self.projects.keys():
+            raise ValueError("{} project does not exist".format(name))
+        return self.projects[name]
+
+    def get_proj_names(self):
+        return [k for k in self.projects.keys()]
 
     @staticmethod
     def set_parents(dom):
