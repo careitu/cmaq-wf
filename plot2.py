@@ -400,8 +400,8 @@ NO_LIMIT = True
 LEVELS = True
 
 cmap_str = cmap if isinstance(cmap, str) else cmap.name
-no_limit_str = 'no_limit' if NO_LIMIT else ''
-pth = _join('plots_combined', '_'.join(('plots', cmap_str, no_limit_str)))
+no_limit_str = 'no_limit' if NO_LIMIT else 'yes_limit'
+pth = _join('plots_combined', proj.name, cmap_str, no_limit_str)
 
 if NO_LIMIT:
     CB_LIMITS = None
