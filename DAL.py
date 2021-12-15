@@ -184,7 +184,7 @@ def _get_data_(dom_names, proj, pol_names, years, months, tstep=True):
 
 
 def _get_data2_(dom_names, proj, pol_names, years, months,
-                slice_dates=None, slice_lats=None, slice_lons=None,
+                slice_dates=None, slice_ilats=None, slice_ilons=None,
                 iterate=True):
     fmt_cro = 'GRIDCRO2D_{}_{}km_{}_{}{:02d}01.nc'
     fmt_com = 'COMBINE_ACONC_v{}_{}_{}_{}km_{}_{}{:02d}.nc'
@@ -192,14 +192,33 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
     # check arg types
     if not isinstance(dom_names, list):
         dom_names = [dom_names]
+
     if not isinstance(pol_names, list):
         pol_names = [pol_names]
+
     if not isinstance(years, list):
         years = [years]
+
     if not isinstance(months, list):
         months = [months]
+
     if isinstance(proj, str):
         proj = s.get_proj_by_name(proj)
+
+    if slice_dates is None:
+        slice_dates = slice(None, None)
+    if not isinstance(slice_dates, slice):
+        raise ValueError("{} argument must be a slice object")
+
+    if slice_ilats is None:
+        slice_ilats = slice(None, None)
+    if not isinstance(slice_ilats, slice):
+        raise ValueError("{} argument must be a slice object")
+
+    if slice_ilons is None:
+        slice_ilons = slice(None, None)
+    if not isinstance(slice_ilons, slice):
+        raise ValueError("{} argument must be a slice object")
 
     for dn in dom_names:
         dom = proj.get_dom_by_name(dn)
@@ -215,6 +234,8 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
                                           proj.name, dom.size, dom.name, y, m)
 
                 xy = _get_latlon_from_cro_(_join(DIR_MCIP, CRO_FILE))
+                lats = xy.lats[slice_ilats, slice_ilons]
+                lons = xy.lons[slice_ilats, slice_ilons]
 
                 dates = _get_dates_(proj, dn, y, m)
                 dates = dates.loc[slice_dates]
@@ -227,21 +248,24 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
 
                     if iterate:
                         for i, k in enumerate(date_indices):
-                            pol = np.asarray(nco.variables[pol_name][k][:])
+                            pol = nco.variables[pol_name][k][:]
+                            pol = pol[:, :, slice_ilats, slice_ilons]
+                            pol = np.asarray(pol)
                             yield xr.DataArray(
                                 pol, dims=['t', 'y', 'x'],
                                 coords={'time': (('t'), [date_values[i]]),
-                                        'Latitude': (('y', 'x'), xy.lats),
-                                        'Longitude': (('y', 'x'), xy.lons)})
+                                        'Latitude': (('y', 'x'), lats),
+                                        'Longitude': (('y', 'x'), lons)})
                     else:
                         if len(date_indices) > 0:
-                            pol = nco.variables[pol_name][date_indices][:]
+                            pol = nco.variables[pol_name][date_indices]
+                            pol = pol[:, :, slice_ilats, slice_ilons]
                             pol = np.squeeze(pol)
                             yield xr.DataArray(
                                 pol, dims=['t', 'y', 'x'],
                                 coords={'time': (('t'), date_values),
-                                        'Latitude': (('y', 'x'), xy.lats),
-                                        'Longitude': (('y', 'x'), xy.lons)})
+                                        'Latitude': (('y', 'x'), lats),
+                                        'Longitude': (('y', 'x'), lons)})
                 nco.close()
 
 
@@ -389,35 +413,21 @@ class PostProc:
         self.months = months
         self.dates = self._dates_.coords['time'].values
 
-    def get_data(self, slice_dates=None):
-        ret = []
-        for i in self._iterate_(slice_dates, iterate=False):
-            ret.append(i)
-        if len(ret) > 0:
-            keys = list(ret[0].keys())
-            ret = {k: [r[k] for r in ret] for k in keys}
+    def get_data(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
+        ret = [i for i in self._iterate_(slice_dates, slice_ilats,
+                                         slice_ilons, iterate=False)]
+        if len(ret) > 1:
+            ret = {k: [r[k] for r in ret] for k in ret[0].keys()}
             ret = {k: xr.concat(v, 't') for k, v in ret.items()}
+        else:
+            ret = ret[0]
         return ret
 
-    def iterate(self, slice_dates=None):
-        yield self._iterate_(slice_dates)
+    def iterate(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
+        yield self._iterate_(slice_dates, slice_ilats, slice_ilons)
 
-    def _iterate_(self, slice_dates=None, iterate=True):
-        # years = [2015]
-        # months = [1, 2, 3]
-        # proj_names = ['cityair', 'cityair_future', 'cityair_future_wama']
-        # dom_names = ['aegean', 'central_blacksea', 'mediterranean']
-        # pol_names = ['NOX', 'O3', 'CO', 'SO2_UGM3', 'PM10', 'PM25_TOT']
-
-        if slice_dates is None:
-            slice_dates = slice(None, None)
-        if not isinstance(slice_dates, slice):
-            raise ValueError("{} argument must be a slice object")
-
-        # dt = self._dates_
-        # dt = dt.loc[slice_dates]
-        # idates = dt.to_series().to_list()
-        # idates = slice(min(idates), max(idates))
+    def _iterate_(self, slice_dates=None, slice_ilats=None, slice_ilons=None,
+                  iterate=True):
 
         pol_names = [p.name for p in self.pols.values()]
         dim_names = ['domain', 'project', 'pol_name']
@@ -425,7 +435,8 @@ class PostProc:
         g = list(map(tuple, zip(*g)))
 
         it = {i: _get_data2_(i[0], i[1], i[2], self.years, self.months,
-                             slice_dates, iterate=iterate)
+                             slice_dates, slice_ilats, slice_ilons,
+                             iterate=iterate)
               for i in g}
         counter = 0
         while True:
