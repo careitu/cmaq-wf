@@ -310,7 +310,9 @@ def calc_stat(dom_names, pol_names, year, months, stats=None):
             xd = xd.assign_coords(day=days)
             xm = getattr(xd.groupby('day.month'), stat_mon)()
             xm2 = xm if xm2 is None else xr.concat([xm2, xm], dim='stat')
-        return xm2.assign_coords(stat=stats)
+        if len(xm2.shape) > 3:
+            xm2 = xm2.assign_coords(stat=stats)
+        return xm2
 
     def get_monthly_stats_for_file(dom_name, pol_names, months):
         fmt_com = 'COMBINE_ACONC_v{}_{}_{}_{}km_{}_{}{:02d}.nc'
@@ -401,7 +403,7 @@ LEVELS = True
 
 cmap_str = cmap if isinstance(cmap, str) else cmap.name
 no_limit_str = 'no_limit' if NO_LIMIT else 'yes_limit'
-pth = _join('plots_combined', proj.name, cmap_str, no_limit_str)
+pth = _join('plots_single', proj.name, cmap_str, no_limit_str)
 
 if NO_LIMIT:
     CB_LIMITS = None
@@ -423,5 +425,5 @@ if LEVELS:
 else:
     CB_LEVELS = None
 
-doms = calc_stat(DOM_NAMES, POL_NAMES, year, months)
+doms = calc_stat(DOM_NAMES, POL_NAMES, year, months, stats=['mean'])
 plot_map(doms, pth, cmap, CB_LEVELS, cb_limits=CB_LIMITS)

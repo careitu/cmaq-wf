@@ -26,6 +26,7 @@ import string
 import cmocean
 from settings import setting as s
 import matplotlib
+from matplotlib.colors import LinearSegmentedColormap as lscmap
 matplotlib.use('Agg')
 
 proj = s.get_active_proj()
@@ -116,8 +117,8 @@ def lambert_ticks(ax, ticks, axis='x'):
     set_ticklabels([axiss.get_major_formatter()(tick) for tick in ticklabels])
 
 
-def plot_map(doms, path, suffix='', cmap='twilight', rast_zorder=None,
-             cb_limits=None):
+def plot_map(doms, path, suffix='', cmap='twilight', cb_levels=None,
+             rast_zorder=None, cb_limits=None):
     import matplotlib.pyplot as plt
     import matplotlib.transforms as mtransforms
     for dom_name, d in doms.items():
@@ -147,6 +148,7 @@ def plot_map(doms, path, suffix='', cmap='twilight', rast_zorder=None,
 
             # with warnings.catch_warnings():
             #     warnings.simplefilter("ignore")
+            levels = None if cb_levels is None else cb_levels[pol_name]
             if cb_limits is None:
                 p = x.plot(x='Longitude', y='Latitude', col='month',
                            robust=True, col_wrap=3, size=4,
@@ -161,7 +163,7 @@ def plot_map(doms, path, suffix='', cmap='twilight', rast_zorder=None,
                 p = x.plot(x='Longitude', y='Latitude', col='month',
                            robust=True, col_wrap=3, size=4,
                            aspect=x.shape[2] / x.shape[1],
-                           cbar_kwargs=cbar_kws, cmap=cmap,
+                           cbar_kwargs=cbar_kws, cmap=cmap, levels=levels,
                            vmin=vmin, vmax=vmax,
                            subplot_kws=dict(projection=ccrs_proj),
                            transform=ccrs.PlateCarree(), zorder=0,
@@ -287,69 +289,56 @@ DOM_NAMES = ['tr', 'aegean', 'central_blacksea', 'mediterranean',
              'south_central_anatolia']
 POL_LABELS = ['$NO_x$', '$O_3$', '$CO$', '$SO_2$', r'$PM_{10}$',
               r'$PM_{2.5}$']
-POL_UNITS = ['$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
-             '$(\\mu g/m^3)$', '$(\\mu g/m^3)$', '$(\\mu g/m^3)$',
-             '$(\\mu g/m^3)$']
+POL_UNITS = ['$(ppb)$', '$(ppb)$', '$(ppb)$', '$(\\mu g/m^3)$',
+             '$(\\mu g/m^3)$', '$(\\mu g/m^3)$']
 year = 2015
 months = [1, 2, 3]
-cmap = cmocean.cm.thermal_r
+# cmap = cmocean.cm.thermal_r  # pylint: disable=E1101
 # cmap = 'twilight'
+cmap = lscmap.from_list("",
+                        ['#E6E1E7', '#d9ca92', '#77c0ab', '#7581C0',
+                         '#633A90', '#3B2044', '#7F3660', '#b266a9',
+                         '#928149', '#D3B8A5', '#E6E1E7'])
+cmap.name = 'mycmap'
+
+cmap = matplotlib.colors.ListedColormap(['#7dede6', '#71c9ac', '#efe661',
+                                         '#ee5c57', '#8b1a34', '#742c7d'])
+cmap.name = 'discrete'
 NO_LIMIT = False
+LEVELS = True
 
 cmap_str = cmap if isinstance(cmap, str) else cmap.name
-no_limit_str = 'no_limit' if NO_LIMIT else ''
-pth = _join('plots_single', '_'.join(('plots', cmap_str, no_limit_str)))
+no_limit_str = 'no_limit' if NO_LIMIT else 'yes_limit'
+pth = _join('plots_single', proj.name, cmap_str, no_limit_str)
 
 if NO_LIMIT:
-    CB_LIMITS_mean = None
-    CB_LIMITS_daily_max = None
-    CB_LIMITS_hourly_max = None
+    CB_LIMITS = None
 else:
-    # CB_LIMITS_mean = {'CO': [0, 100],
-    #                   'NOX': [0, 10],
-    #                   'O3': [0, 60],
-    #                   'PM10': [0, 80],
-    #                   'PM25_TOT': [0, 40],
-    #                   'SO2_UGM3': [0, 20]}
-    # CB_LIMITS_daily_max = {'CO': [0, 200],
-    #                        'NOX': [0, 20],
-    #                        'O3': [0, 80],
-    #                        'PM10': [0, 200],
-    #                        'PM25_TOT': [0, 100],
-    #                        'SO2_UGM3': [0, 30]}
-    # CB_LIMITS_hourly_max = {'CO': [0, 400],
-    #                         'NOX': [0, 40],
-    #                         'O3': [0, 80],
-    #                         'PM10': [0, 300],
-    #                         'PM25_TOT': [0, 150],
-    #                         'SO2_UGM3': [0, 50]}
-    CB_LIMITS_mean = {'CO': [70, 100],
-                      'NOX': [0, 10],
-                      'O3': [0, 60],
-                      'PM10': [0, 80],
-                      'PM25_TOT': [0, 40],
-                      'SO2_UGM3': [0, 20]}
-    CB_LIMITS_daily_max = {'CO': [0, 200],
-                           'NOX': [0, 20],
-                           'O3': [0, 80],
-                           'PM10': [0, 200],
-                           'PM25_TOT': [0, 100],
-                           'SO2_UGM3': [0, 30]}
-    CB_LIMITS_hourly_max = {'CO': [0, 400],
-                            'NOX': [0, 40],
-                            'O3': [0, 80],
-                            'PM10': [0, 300],
-                            'PM25_TOT': [0, 150],
-                            'SO2_UGM3': [0, 50]}
+    CB_LIMITS = {'CO': [0, 100],
+                 'NOX': [0, 10],
+                 'O3': [0, 60],
+                 'PM10': [0, 80],
+                 'PM25_TOT': [0, 40],
+                 'SO2_UGM3': [0, 20]}
+
+if LEVELS:
+    CB_LEVELS = {'CO': [0, 100, 200, 250, 500, 750, 8000],
+                 'NOX': [0, 21, 46, 62, 118, 174, 514],
+                 'O3': [0, 25, 49, 64, 118, 187, 394],
+                 'PM10': [0, 20, 40, 50, 100, 150, 1200],
+                 'PM25_TOT': [0, 10, 20, 25, 50, 75, 800],
+                 'SO2_UGM3': [0, 100, 200, 350, 500, 750, 1250]}
+else:
+    CB_LEVELS = None
 
 
 doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean',
                  stat_mon='mean')
-plot_map(doms, pth, 'mean', cmap, cb_limits=CB_LIMITS_mean)
+plot_map(doms, pth, 'mean', cmap, cb_limits=CB_LIMITS, cb_levels=CB_LEVELS)
 
-doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean', stat_mon='max')
-plot_map(doms, pth, 'daily_max', cmap, cb_limits=CB_LIMITS_daily_max)
+# doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='mean', stat_mon='max')
+# plot_map(doms, pth, 'daily_max', cmap, cb_limits=CB_LIMITS_daily_max)
 
-doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='max', stat_mon='max')
-plot_map(doms, pth, 'hourly_max', cmap, cb_limits=CB_LIMITS_hourly_max)
+# doms = calc_stat(DOM_NAMES, POL_NAMES, months, stat_day='max', stat_mon='max')
+# plot_map(doms, pth, 'hourly_max', cmap, cb_limits=CB_LIMITS_hourly_max)
 
