@@ -25,6 +25,7 @@ from warnings import warn as _warn
 
 from netCDF4 import Dataset
 import xarray as xr
+from xarray import DataArray
 
 from copy import deepcopy
 
@@ -32,7 +33,7 @@ from settings import setting as s
 
 import itertools
 
-Location = _nt('Location', 'ilat ilon lat lon')
+# Location = _nt('Location', 'name ilat ilon lat lon')
 
 
 def _expandgrid_(*itrs):
@@ -134,11 +135,7 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
                 lons = xy.lons[slice_ilats, slice_ilons]
 
                 dates = ncDates.from_proj(proj, dn, y, m)
-                # dates = _get_dates_(proj, dn, y, m)
                 dates = dates.loc(slice_dates)
-                # dates = dates.loc[slice_dates]
-                # date_values = dates.coords.to_index()
-                # date_indices = dates.to_series().to_list()
 
                 nco = Dataset(_join(DIR_POST, COM_FILE))
 
@@ -182,7 +179,7 @@ def _concat_(x, dim_names, recursive=True):
     g2 = list(set(i[:-1] for i in x.keys()))
     g2 = [i[0] if len(i) == 1 else i for i in g2]
     doms = {i: list() for i in g2}
-    for k, v in doms.items():
+    for k in doms:
         for k2, d2 in x.items():
             k2 = k2[:-1]
             if isinstance(k2, tuple):
@@ -213,6 +210,18 @@ def _haversine_(lon1, lat1, lon2, lat2):
     c = 2 * asin(sqrt(a))
     r = 6371  # Radius of earth in kilometers
     return c * r
+
+
+class Location:
+    def __init__(self, lat, lon, ilat=None, ilon=None, name=None):
+        d = {'lat': lat, 'lon': lon, 'ilat': ilat, 'ilon': ilon, 'name': name}
+        self.__dict__.update(d)
+
+    def __repr__(self):
+        name = f'({self.name})' if self.name is not None else ''
+        return f'Location:{name} {{' + \
+                ' '.join([f" {k}: {v}" for k, v in self.__dict__.items()
+                          if v is not None]) + '}}'
 
 
 class ncDates:
@@ -303,7 +312,7 @@ class GridData:
         self.__dict__.update(data)
         self.__dict__.update(atts)
 
-    def nearest_grid_loc(self, lat, lon):
+    def nearest_grid_loc(self, lat, lon, name=None):
         from math import floor
         x, y = self.proj(lon, lat)
         ilon, ilat = (floor((x - self.XORIG) / self.XCELL),
@@ -312,11 +321,11 @@ class GridData:
             raise ValueError('lon is out of domain bounds')
         if ilat < 0 or ilat >= self.NROWS:
             raise ValueError('lat is out of domain bounds')
-        return Location(ilat, ilon,
-                        self.lats[ilat, ilon],
-                        self.lons[ilat, ilon])
+        return Location(self.lats[ilat, ilon],
+                        self.lons[ilat, ilon],
+                        ilat, ilon)
 
-    def nearest_grid_hav(self, lat, lon):
+    def nearest_grid_hav(self, lat, lon, name=None):
         # lon, lat = 27.1633, 38.4217 - İzmir
         lons = self.lons
         lats = self.lats
@@ -325,7 +334,7 @@ class GridData:
             for j in range(lats.shape[1]):
                 h[i, j] = _haversine_(lon, lat, lons[i, j], lats[i, j])
         g = _ma.where(h == h.min())
-        return Location(g[0][0], g[1][0], lats[g][0], lons[g][0])
+        return Location(lats[g][0], lons[g][0], g[0][0], g[1][0])
 
     @classmethod
     def from_dom(cls, proj, dom):
@@ -369,6 +378,35 @@ class Domain:
         s += f'  ncol: {self.gd.NCOLS}\n'
         s += f'  nrow: {self.gd.NROWS}\n'
         return s
+
+    def is_in(self, loc):
+        if isinstance(loc, list):
+            return [self.is_in(lo) for lo in loc]
+        try:
+            self.gd.nearest_grid_loc(loc.lat, loc.lon)
+            return True
+        except ValueError:
+            return False
+
+    def get_data_loc(self, slice_dates=None, loc=None, simplify=True):
+        ret = None
+        if isinstance(loc, list):
+            data = [self.get_data_loc(slice_dates, lo) for lo in loc]
+            if len(data) > 1:
+                data = xr.concat(data, dim='sta')
+                data = data.assign_coords({'sta': [lo.name for lo in loc]})
+            else:
+                data = data[0]
+            ret = data
+        if isinstance(loc, Location):
+            ret = self.get_data(slice_dates,
+                                slice(loc.lat, loc.lat),
+                                slice(loc.lon, loc.lon))
+            if simplify and isinstance(ret, DataArray):
+                ret = np.squeeze(ret)
+        if ret is not None:
+            return ret
+        raise ValueError('lats and lons must be list or float and same type')
 
     def get_data(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
         return self._pp_.get_data(slice_dates, slice_ilats, slice_ilons)
@@ -458,6 +496,8 @@ class PostProc:
             ret = {k: xr.concat(v, 't') for k, v in ret.items()}
         else:
             ret = ret[0]
+        if isinstance(ret, dict) and len(ret) == 1:
+            ret = list(ret.values())[0]
         return ret
 
     def iterate(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
