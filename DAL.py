@@ -2,80 +2,31 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=C0103,W0621,W0702,W0703
 # pylint: disable=C0115,C0116,C0415,E1101
+# pylint: disable=R0913
 
 """
 Create/get CMAQ-WF settings
 ~~~~~~~~
 """
-import calendar
-import numpy as np
-import numpy.ma as _ma
-import json as _json
-import os as _os
-import pandas as pd
-
-from scipy.optimize import minimize
-from collections import namedtuple as _nt
+import calendar as _cal
 from datetime import datetime as _dt
-
-from json import JSONEncoder as _je
 from os.path import join as _join
-from pathlib import Path as _path
-from warnings import warn as _warn
 
-from netCDF4 import Dataset
-import xarray as xr
-from xarray import DataArray
+import numpy as _np
+import numpy.ma as _ma
+import pandas as _pd
 
-from copy import deepcopy
+import netCDF4 as _nc
+import xarray as _xr
 
-from settings import setting as s
-
-import itertools
-
-# Location = _nt('Location', 'name ilat ilon lat lon')
-
-
-def _expandgrid_(*itrs):
-    product = list(itertools.product(*itrs))
-    return [[x[i] for x in product] for i in range(len(itrs))]
-
-
-def _check_slice_(s, types=(int, float, str)):
-    def check_type(x):
-        typ = None
-        if x is not None:
-            if isinstance(x, types):
-                typ = type(x)
-            else:
-                err_str = "slice value type can only be float or int"
-                raise ValueError(err_str)
-        return typ
-
-    if s is None:
-        s = slice(None, None)
-    if not isinstance(s, slice):
-        raise ValueError("{} argument must be a slice object")
-
-    typ = list(set((check_type(s.start), check_type(s.stop))))
-    typ = list(filter(None.__ne__, typ))
-    ret = None
-    if len(typ) == 0:
-        ret = None
-    elif len(typ) == 1:
-        if typ[0] in types:
-            ret = typ[0]
-        else:
-            err_str = f"slice value types can only be one of {types}"
-            raise ValueError(err_str)
-    else:
-        raise ValueError("slice is not in proper format")
-    return (s, ret)
+from _helper_functions_ import check_slice as _check_slice_
+from settings import setting as _set
 
 
 def _get_data2_(dom_names, proj, pol_names, years, months,
                 slice_dates=None, slice_ilats=None, slice_ilons=None,
                 gd=None, iterate=True):
+    # TODO: This function need to simplify
     fmt_cro = 'GRIDCRO2D_{}_{}km_{}_{}{:02d}01.nc'
     fmt_com = 'COMBINE_ACONC_v{}_{}_{}_{}km_{}_{}{:02d}.nc'
 
@@ -93,7 +44,7 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
         months = [months]
 
     if isinstance(proj, str):
-        proj = s.get_proj_by_name(proj)
+        proj = _set.get_proj_by_name(proj)
 
     slice_dates, _ = _check_slice_(slice_dates, (str, int))
     slice_ilats, type_ilats = _check_slice_(slice_ilats, (int, float))
@@ -114,14 +65,15 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
             slice_ilats = slice(ilats[0], ilats[1])
             slice_ilons = slice(ilons[0], ilons[1])
         else:
-            err_msg = 'if lat/lon slices are float, gd (GridData) must be given'
+            err_msg = 'if lat/lon slices are float, \
+            gd (GridData) must be given'
             raise ValueError(err_msg)
 
     for dn in dom_names:
         dom = proj.get_dom_by_name(dn)
         for y in years:
             for m in months:
-                month_name = calendar.month_name[m].lower()
+                month_name = _cal.month_name[m].lower()
                 DIR_MCIP = _join(proj.path.mcip, '{}km'.format(dom.size),
                                  dom.name, month_name + '_monthly')
                 DIR_POST = proj.path.post
@@ -137,7 +89,7 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
                 dates = ncDates.from_proj(proj, dn, y, m)
                 dates = dates.loc(slice_dates)
 
-                nco = Dataset(_join(DIR_POST, COM_FILE))
+                nco = _nc.Dataset(_join(DIR_POST, COM_FILE))
 
                 for pol_name in pol_names:
 
@@ -145,7 +97,7 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
                         for i, k in enumerate(dates.indices):
                             pol = nco.variables[pol_name]
                             pol = pol[k, :, slice_ilats, slice_ilons]
-                            pol = xr.DataArray(
+                            pol = _xr.DataArray(
                                 pol, dims=['t', 'l', 'y', 'x'],
                                 coords={'time': (('t'), [dates.values[i]]),
                                         'layer': (('l'), [1]),
@@ -159,7 +111,7 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
                             pol = nco.variables[pol_name]
                             pol = pol[dates.indices, :, slice_ilats,
                                       slice_ilons]
-                            pol = xr.DataArray(
+                            pol = _xr.DataArray(
                                 pol, dims=['t', 'l', 'y', 'x'],
                                 coords={'time': (('t'), dates.values),
                                         'layer': (('l'), [1]),
@@ -178,7 +130,7 @@ def _concat_(x, dim_names, recursive=True):
 
     g2 = list(set(i[:-1] for i in x.keys()))
     g2 = [i[0] if len(i) == 1 else i for i in g2]
-    doms = {i: list() for i in g2}
+    doms = {i: [] for i in g2}
     for k in doms:
         for k2, d2 in x.items():
             k2 = k2[:-1]
@@ -189,8 +141,8 @@ def _concat_(x, dim_names, recursive=True):
                 doms[k].append(d2)
 
     # combine by last dim
-    for k, v in doms.items():
-        doms[k] = xr.concat(doms[k], dim_names[-1])
+    for k in doms:
+        doms[k] = _xr.concat(doms[k], dim_names[-1])
 
     if recursive:
         k = list(doms.keys())[0]
@@ -214,14 +166,20 @@ def _haversine_(lon1, lat1, lon2, lat2):
 
 class Location:
     def __init__(self, lat, lon, ilat=None, ilon=None, name=None):
-        d = {'lat': lat, 'lon': lon, 'ilat': ilat, 'ilon': ilon, 'name': name}
+        d = {'lat': lat, 'lon': lon, 'ilat': ilat,
+             'ilon': ilon, 'name': name}
         self.__dict__.update(d)
 
     def __repr__(self):
         name = f'({self.name})' if self.name is not None else ''
         return f'Location:{name} {{' + \
-                ' '.join([f" {k}: {v}" for k, v in self.__dict__.items()
-                          if v is not None]) + '}}'
+               ' '.join([f" {k}: {v}" for k, v in self.__dict__.items()
+                         if v is not None and k != 'name']) + '}}'
+
+    def is_in(self, x):
+        if not isinstance(x, (Domain, GridData)):
+            raise ValueError('x must be a Domain or GridData object')
+        return x.contains(self)
 
 
 class ncDates:
@@ -251,20 +209,19 @@ class ncDates:
         slice_dates, type_dates = _check_slice_(slice_dates, (str, int))
         if type_dates == int:
             sliced = self.xarr[slice_dates].coords['time'].values
-            slice_dates = slice(str(np.datetime_as_string(sliced.min())),
-                                str(np.datetime_as_string(sliced.max())))
+            slice_dates = slice(str(_np.datetime_as_string(sliced.min())),
+                                str(_np.datetime_as_string(sliced.max())))
         return ncDates(self.xarr.loc[slice_dates])
 
     @classmethod
     def _get_dates_from_nc_(cls, nc_file):
-        nc = Dataset(nc_file)
+        nc = _nc.Dataset(nc_file)
         TFLAG = nc.variables['TFLAG'][:, 0, :]
         nc.close()
         dates = [f'{i[0]} {i[1]:06d}' for i in TFLAG]
-        # dates = ['{} {:06d}'.format(i[0], i[1]) for i in TFLAG]
         dates = [_dt.strptime(i, '%Y%j %H%M%S') for i in dates]
-        xarr = xr.DataArray(range(0, len(dates)),
-                            [("time", pd.to_datetime(dates))])
+        xarr = _xr.DataArray(range(0, len(dates)),
+                             [("time", _pd.to_datetime(dates))])
         return xarr
 
     @classmethod
@@ -286,7 +243,7 @@ class ncDates:
 
         list_of_nc_files = [fmt.format(y, m) for y in years for m in months]
         xarr = [cls._get_dates_from_nc_(f) for f in list_of_nc_files]
-        xarr = xr.concat(xarr, 'time')
+        xarr = _xr.concat(xarr, 'time')
         return cls(xarr, list_of_nc_files)
 
 
@@ -297,10 +254,10 @@ class GridData:
                       'P_ALP P_BET GDTYP P_GAM').split(' ')
         variables = 'proj lons lats xlons ylats'.split(' ')
 
-        nco = Dataset(nc_cro_file)
+        nco = _nc.Dataset(nc_cro_file)
         atts = {k: nco.getncattr(k) for k in attributes}
-        lons = np.squeeze(nco.variables[lon_name][:])
-        lats = np.squeeze(nco.variables[lat_name][:])
+        lons = _np.squeeze(nco.variables[lon_name][:])
+        lats = _np.squeeze(nco.variables[lat_name][:])
         nco.close()
 
         # pylint: disable=C0209
@@ -323,7 +280,7 @@ class GridData:
             raise ValueError('lat is out of domain bounds')
         return Location(self.lats[ilat, ilon],
                         self.lons[ilat, ilon],
-                        ilat, ilon)
+                        ilat, ilon, name)
 
     def nearest_grid_hav(self, lat, lon, name=None):
         # lon, lat = 27.1633, 38.4217 - İzmir
@@ -334,20 +291,29 @@ class GridData:
             for j in range(lats.shape[1]):
                 h[i, j] = _haversine_(lon, lat, lons[i, j], lats[i, j])
         g = _ma.where(h == h.min())
-        return Location(lats[g][0], lons[g][0], g[0][0], g[1][0])
+        return Location(lats[g][0], lons[g][0], g[0][0], g[1][0], name)
+
+    def contains(self, loc):
+        if isinstance(loc, list):
+            return [self.contains(lo) for lo in loc]
+        try:
+            self.nearest_grid_loc(loc.lat, loc.lon)
+            return True
+        except ValueError:
+            return False
 
     @classmethod
     def from_dom(cls, proj, dom):
         fmt_cro = 'GRIDCRO2D_{}_{}km_{}_{}{:02d}01.nc'
 
         if isinstance(proj, str):
-            proj = s.get_proj_by_name(proj)
+            proj = _set.get_proj_by_name(proj)
 
         if isinstance(dom, str):
             dom = proj.get_dom_by_name(dom)
 
         m = proj.months[0]
-        month_name = calendar.month_name[m].lower()
+        month_name = _cal.month_name[m].lower()
         DIR_MCIP = _join(proj.path.mcip, f'{dom.size}km',
                          dom.name, f'{month_name}_monthly')
         CRO_FILE = fmt_cro.format(proj.name, dom.size, dom.name,
@@ -365,6 +331,7 @@ class Domains:  # pylint: disable=R0903
 
 class Domain:
     def __init__(self, name, gd, pp):
+        from copy import deepcopy
         self.name = name
         self.gd = gd
         self._pp_ = deepcopy(pp)
@@ -379,22 +346,18 @@ class Domain:
         s += f'  nrow: {self.gd.NROWS}\n'
         return s
 
-    def is_in(self, loc):
-        if isinstance(loc, list):
-            return [self.is_in(lo) for lo in loc]
-        try:
-            self.gd.nearest_grid_loc(loc.lat, loc.lon)
-            return True
-        except ValueError:
-            return False
+    def contains(self, loc):
+        return self.gd.contains(loc)
 
     def get_data_loc(self, slice_dates=None, loc=None, simplify=True):
         ret = None
         if isinstance(loc, list):
             data = [self.get_data_loc(slice_dates, lo) for lo in loc]
             if len(data) > 1:
-                data = xr.concat(data, dim='sta')
-                data = data.assign_coords({'sta': [lo.name for lo in loc]})
+                data = _xr.concat(data, dim='sta')
+                loc_names = [lo.name if lo.name is not None else f'S{i}'
+                             for i, lo in enumerate(loc)]
+                data = data.assign_coords({'sta': loc_names})
             else:
                 data = data[0]
             ret = data
@@ -402,17 +365,18 @@ class Domain:
             ret = self.get_data(slice_dates,
                                 slice(loc.lat, loc.lat),
                                 slice(loc.lon, loc.lon))
-            if simplify and isinstance(ret, DataArray):
-                ret = np.squeeze(ret)
+            if simplify and isinstance(ret, _xr.DataArray):
+                ret = _np.squeeze(ret)
         if ret is not None:
             return ret
-        raise ValueError('lats and lons must be list or float and same type')
+        err_msg = 'loc must be Location object or list of Location objects'
+        raise ValueError(err_msg)
 
     def get_data(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
         return self._pp_.get_data(slice_dates, slice_ilats, slice_ilons)
 
     def iterate(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
-        yield self._pp_._iterate_(slice_dates, slice_ilats, slice_ilons)
+        yield self._pp_.iterate(slice_dates, slice_ilats, slice_ilons)
 
 
 class PostProc:
@@ -420,10 +384,10 @@ class PostProc:
     def __init__(self, proj_names=None, dom_names=None, pol_names=None):
         years, months = None, None
         if proj_names is None:
-            proj_names = s.get_proj_names()
+            proj_names = _set.get_proj_names()
         if not isinstance(proj_names, list):
             proj_names = [proj_names]
-        _proj_ = s.get_proj_by_name(proj_names)
+        _proj_ = _set.get_proj_by_name(proj_names)
 
         if dom_names is None:
             dom_names = [p.get_dom_names() for p in _proj_.values()]
@@ -493,7 +457,7 @@ class PostProc:
                                   slice_ilons, iterate=False))
         if len(ret) > 1:
             ret = {k: [r[k] for r in ret] for k in ret[0].keys()}
-            ret = {k: xr.concat(v, 't') for k, v in ret.items()}
+            ret = {k: _xr.concat(v, 't') for k, v in ret.items()}
         else:
             ret = ret[0]
         if isinstance(ret, dict) and len(ret) == 1:
@@ -505,16 +469,14 @@ class PostProc:
 
     def _iterate_(self, slice_dates=None, slice_ilats=None, slice_ilons=None,
                   iterate=True):
-
-        slice_dates, type_dates = _check_slice_(slice_dates, (str, int))
-        if type_dates == int:
-            sliced = self.dates.xarr[slice_dates].coords['time'].values
-            slice_dates = slice(str(np.datetime_as_string(sliced.min())),
-                                str(np.datetime_as_string(sliced.max())))
+        def expandgrid(*itrs):
+            import itertools
+            product = list(itertools.product(*itrs))
+            return [[x[i] for x in product] for i in range(len(itrs))]
 
         pol_names = [p.name for p in self.pols.values()]
         dim_names = ['domain', 'project', 'pol_name']
-        g = _expandgrid_(self.dom_names, self.proj_names, pol_names)
+        g = expandgrid(self.dom_names, self.proj_names, pol_names)
         g = list(map(tuple, zip(*g)))
 
         it = {i: _get_data2_(i[0], i[1], i[2], self.years, self.months,
@@ -534,8 +496,4 @@ class PostProc:
 
             except StopIteration:
                 break
-            # for d2 in d.values():
-            #     t = d2.coords['time'].values[0]
-            #     break
             counter = counter + 1
-            # print("{} - {}".format(counter, t))
