@@ -110,6 +110,39 @@ def expandgrid(*itrs):
     return list(map(tuple, zip(*x)))
 
 
+def check_slice(s, types=(int, float, str)):
+    """ Check Slice object """
+    def check_type(x):
+        typ = None
+        if x is not None:
+            if isinstance(x, types):
+                typ = type(x)
+            else:
+                err_str = f"slice value type can only be {types}"
+                raise ValueError(err_str)
+        return typ
+
+    if s is None:
+        s = slice(None, None)
+    if not isinstance(s, slice):
+        raise ValueError("s argument must be a slice object")
+
+    typ = list(set((check_type(s.start), check_type(s.stop))))
+    typ = list(filter(None.__ne__, typ))
+    ret = None
+    if len(typ) == 0:
+        ret = None
+    elif len(typ) == 1:
+        if typ[0] in types:
+            ret = typ[0]
+        else:
+            err_str = f"slice value types can only be one of {types}"
+            raise ValueError(err_str)
+    else:
+        raise ValueError("slice is not in proper format")
+    return (s, ret)
+
+
 def get_days(year, month, day=list(range(1, 32))):
     """ Return days in specific year and month """
     def date_is_ok(year, month, day):
