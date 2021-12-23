@@ -11,6 +11,7 @@ Create/get CMAQ-WF settings
 import calendar as _cal
 from datetime import datetime as _dt
 from os.path import join as _join
+from collections import namedtuple as _nt
 
 import numpy as _np
 import numpy.ma as _ma
@@ -23,9 +24,9 @@ from _helper_functions_ import check_slice as _check_slice_
 from settings import setting as _set
 
 
-def _get_data2_(dom_names, proj, pol_names, years, months,
+def _get_data2_(dom_names, proj, pol_names,
                 slice_dates=None, slice_ilats=None, slice_ilons=None,
-                gd=None, iterate=True):
+                layer_mean=False, gd=None, iterate=True):
     # TODO: This function need to simplify
     fmt_cro = 'GRIDCRO2D_{}_{}km_{}_{}{:02d}01.nc'
     fmt_com = 'COMBINE_ACONC_v{}_{}_{}_{}km_{}_{}{:02d}.nc'
@@ -34,19 +35,19 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
     if not isinstance(dom_names, list):
         dom_names = [dom_names]
 
-    if not isinstance(pol_names, list):
-        pol_names = [pol_names]
-
-    if not isinstance(years, list):
-        years = [years]
-
-    if not isinstance(months, list):
-        months = [months]
-
     if isinstance(proj, str):
         proj = _set.get_proj_by_name(proj)
 
+    if not isinstance(pol_names, list):
+        pol_names = [pol_names]
+
+    # Get years/months from project
+    # We don't have any reason to supply years/months.
+    # We already have slice_dates argument.
+    nc_dates = ncDates.from_proj(proj, dom_names[0])
     slice_dates, _ = _check_slice_(slice_dates, (str, int))
+    nc_dates = nc_dates.loc(slice_dates)
+
     slice_ilats, type_ilats = _check_slice_(slice_ilats, (int, float))
     slice_ilons, type_ilons = _check_slice_(slice_ilons, (int, float))
 
@@ -56,12 +57,16 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
             l2 = gd.nearest_grid_loc(slice_ilats.stop, slice_ilons.stop)
             ilats = (l1.ilat, l2.ilat)
             ilats = (min(ilats), max(ilats))
+            # mid_ilat = (ilats[0] + ilats[1]) / 2
             if ilats[0] == ilats[1]:
                 ilats = (min(ilats), max(ilats) + 1)
+                # mid_ilat = ilats[0]
             ilons = (l1.ilon, l2.ilon)
             ilons = (min(ilons), max(ilons))
+            # mid_ion = (ilons[0] + ilons[1]) / 2
             if ilons[0] == ilons[1]:
                 ilons = (min(ilons), max(ilons) + 1)
+                # mid_ilon = ilons[0]
             slice_ilats = slice(ilats[0], ilats[1])
             slice_ilons = slice(ilons[0], ilons[1])
         else:
@@ -71,8 +76,8 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
 
     for dn in dom_names:
         dom = proj.get_dom_by_name(dn)
-        for y in years:
-            for m in months:
+        for y in nc_dates.years:
+            for m in nc_dates.months:
                 month_name = _cal.month_name[m].lower()
                 DIR_MCIP = _join(proj.path.mcip, '{}km'.format(dom.size),
                                  dom.name, month_name + '_monthly')
@@ -85,6 +90,10 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
                 xy = GridData(_join(DIR_MCIP, CRO_FILE))
                 lats = xy.lats[slice_ilats, slice_ilons]
                 lons = xy.lons[slice_ilats, slice_ilons]
+                # get middle
+                k1 = 0 if lats.shape[0] == 2 else (lats.shape[0] // 2)
+                k2 = 0 if lats.shape[1] == 2 else (lats.shape[1] // 2)
+                mid_lat, mid_lon =  lats[k1, k2], lons[k1, k2]
 
                 dates = ncDates.from_proj(proj, dn, y, m)
                 dates = dates.loc(slice_dates)
@@ -98,13 +107,18 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
                             pol = nco.variables[pol_name]
                             pol = pol[k, :, slice_ilats, slice_ilons]
                             pol = _xr.DataArray(
-                                pol, dims=['t', 'l', 'y', 'x'],
+                                pol, dims=['t', 'y', 'x'],
                                 coords={'time': (('t'), [dates.values[i]]),
-                                        'layer': (('l'), [1]),
                                         'Latitude': (('y', 'x'), lats),
                                         'Longitude': (('y', 'x'), lons)})
-                            pol = pol.squeeze('l')
-                            pol = pol.drop(labels='layer')
+                            if layer_mean:
+                                pol = pol.mean(['y', 'x'])
+                                pol = pol.expand_dims(['y', 'x'],
+                                                      [len(pol.dims),
+                                                      len(pol.dims) + 1])
+                                pol = pol.assign_coords(
+                                    Latitude=('y', [mid_lat]),
+                                    Longitude=(['x'], [mid_lon]))
                             yield pol
                     else:
                         if len(dates.indices) > 0:
@@ -119,6 +133,14 @@ def _get_data2_(dom_names, proj, pol_names, years, months,
                                         'Longitude': (('y', 'x'), lons)})
                             pol = pol.squeeze('l')
                             pol = pol.drop(labels='layer')
+                            if layer_mean:
+                                pol = pol.mean(['y', 'x'])
+                                pol = pol.expand_dims(['y', 'x'],
+                                                      [len(pol.dims),
+                                                      len(pol.dims) + 1])
+                                pol = pol.assign_coords(
+                                    Latitude=('y', [mid_lat]),
+                                    Longitude=(['x'], [mid_lon]))
                             yield pol
                 nco.close()
 
@@ -187,6 +209,8 @@ class ncDates:
         self.xarr = xarray
         self.values = xarray.coords.to_index()
         self.indices = xarray.to_series().to_list()
+        self.years = list(set(i.year for i in self.values))
+        self.months = list(set(i.month for i in self.values))
         self.nc_file = nc_file
 
     def __repr__(self):
@@ -229,7 +253,11 @@ class ncDates:
         return cls(cls._get_dates_from_nc_(nc_file), nc_file)
 
     @classmethod
-    def from_proj(cls, proj, dom_name, years, months):
+    def from_proj(cls, proj, dom_name, years=None, months=None):
+        if years is None:
+            years = proj.years
+        if months is None:
+            months = proj.months
         if not isinstance(years, list):
             years = [years]
         if not isinstance(months, list):
@@ -241,7 +269,8 @@ class ncDates:
                          proj.name, dom.size, dom.name)
         fmt = _join(DIR_POST, fmt)
 
-        list_of_nc_files = [fmt.format(y, m) for y in years for m in months]
+        list_of_nc_files = [fmt.format(y, m) for y in years 
+                            for m in months]
         xarr = [cls._get_dates_from_nc_(f) for f in list_of_nc_files]
         xarr = _xr.concat(xarr, 'time')
         return cls(xarr, list_of_nc_files)
@@ -268,16 +297,51 @@ class GridData:
         self.nc_cro_file = nc_cro_file
         self.__dict__.update(data)
         self.__dict__.update(atts)
+        Bounds = _nt('Bounds', ['lat', 'lon'])
+        self.bounds = Bounds([self.lats.min(), self.lats.max()],
+                             [self.lons.min(), self.lons.max()])
+        self.ibounds = Bounds([0, self.NROWS - 1],
+                              [0, self.NCOLS - 1])
 
-    def nearest_grid_loc(self, lat, lon, name=None):
+    def __repr__(self):
+        s = 'Grid:\n'
+        s += f'  SIZE                : {self.XCELL} x {self.YCELL}\n'
+        s += f'  NCOL x NROW         : {self.NCOLS} x {self.NROWS}\n'
+        s += f'  XORIG, YORIG        : {self.XORIG}, {self.YORIG}\n'
+        s += f'  XCENT, YCENT        : {self.XCENT}, {self.YCENT}\n'
+        s += f'  P_ALP, P_BET, P_GAM : {self.P_ALP}, {self.P_BET},'
+        s += f' {self.P_GAM}\n'
+        s += f'  GDTYP               : {self.GDTYP}\n'
+        s += 'BOUNDS:\n'
+        s += '        MIN    MAX\n'
+        s += f'  LAT: {self.bounds.lat[0]:.4f} {self.bounds.lat[1]:.4f}\n'
+        s += f'  LON: {self.bounds.lon[0]:.4f} {self.bounds.lon[1]:.4f}\n'
+        return s
+
+    def get_lat_at(self, i, j):
+        return self.lats[i, j]
+
+    def get_lon_at(self, i, j):
+        return self.lons[i, j]
+
+    def get_latlon_at(self, i, j):
+        return (self.lats[i, j], self.lons[i, j])
+
+    def nearest_grid_loc(self, lat, lon, name=None, raise_error=True):
         from math import floor
         x, y = self.proj(lon, lat)
         ilon, ilat = (floor((x - self.XORIG) / self.XCELL),
                       floor((y - self.YORIG) / self.YCELL))
-        if ilon < 0 or ilon >= self.NCOLS:
-            raise ValueError('lon is out of domain bounds')
-        if ilat < 0 or ilat >= self.NROWS:
-            raise ValueError('lat is out of domain bounds')
+        if raise_error:
+            if ilon < 0 or ilon >= self.NCOLS:
+                raise ValueError('lon is out of domain bounds')
+            if ilat < 0 or ilat >= self.NROWS:
+                raise ValueError('lat is out of domain bounds')
+        else:
+            ilat = max(ilat, 0)
+            ilat = min(ilat, self.NROWS - 1)
+            ilon = max(ilon, 0)
+            ilon = min(ilon, self.NCOLS - 1)
         return Location(self.lats[ilat, ilon],
                         self.lons[ilat, ilon],
                         ilat, ilon, name)
@@ -321,12 +385,17 @@ class GridData:
         return GridData(_join(DIR_MCIP, CRO_FILE))
 
 
-class Domains:  # pylint: disable=R0903
+class Domains:
     def __init__(self, dic):
+        self.__mem__ = dic
         self.__dict__.update(dic)
 
     def __repr__(self):
-        return 'Domains:\n' + '\n'.join([f" * {k}" for k in self.__dict__])
+        return 'Domains:\n' + '\n'.join([f" * {k}" for k in self.__mem__])
+
+    def __iter__(self):
+        for i in self.__mem__.values():
+            yield i
 
 
 class Domain:
@@ -349,34 +418,87 @@ class Domain:
     def contains(self, loc):
         return self.gd.contains(loc)
 
-    def get_data_loc(self, slice_dates=None, loc=None, simplify=True):
+    def nearest_grid_loc(self, loc, name=None):
+        return self.gd.nearest_grid_loc(loc.lat, loc.lon, name,
+                                        raise_error=False)
+
+    def get_data_loc(self, slice_dates=None, loc=None, delta=0,
+                     layer_mean=False, simplify=True):
         ret = None
+        if not isinstance(delta, int):
+            raise ValueError('delta must be integer')
+        if delta < 0:
+            raise ValueError('delta must be positive integer')
         if isinstance(loc, list):
-            data = [self.get_data_loc(slice_dates, lo) for lo in loc]
+            for i, lo in enumerate(loc):
+                if lo.name is None:
+                    lo.name = f'S{i}'
+            data = [self.get_data_loc(slice_dates, lo, delta, layer_mean,
+                                      simplify) for lo in loc]
             if len(data) > 1:
                 data = _xr.concat(data, dim='sta')
-                loc_names = [lo.name if lo.name is not None else f'S{i}'
-                             for i, lo in enumerate(loc)]
-                data = data.assign_coords({'sta': loc_names})
             else:
                 data = data[0]
             ret = data
         if isinstance(loc, Location):
-            ret = self.get_data(slice_dates,
-                                slice(loc.lat, loc.lat),
-                                slice(loc.lon, loc.lon))
+            # print(loc.name)
+            if loc.name is None:
+                import random
+                n = random.randint(0, 99999)
+                loc.name = f'S{n:05d}'
+            slice_ilats = slice(loc.lat, loc.lat)
+            slice_ilons = slice(loc.lon, loc.lon)
+            if (type(loc.lat), type(loc.lon)) == (float, float):
+                if self.gd is not None:
+                    l1 = self.nearest_grid_loc(loc)
+                    print(f'l1 = {l1}')
+                    ilat_start, ilat_end = l1.ilat - delta, l1.ilat + delta + 1
+                    print(f'ilat_start:{ilat_start}, ilat_end:{ilat_end}')
+                    ilat_start = max(ilat_start, 0)
+                    ilat_start = min(ilat_start, self.gd.ibounds.lat[1])
+                    ilat_end = max(ilat_end, 0)
+                    ilat_end = min(ilat_end, self.gd.ibounds.lat[1])
+                    if ilat_start == ilat_end:
+                        ilat_end += 1
+
+                    ilon_start, ilon_end = l1.ilon - delta, l1.ilon + delta + 1
+                    print(f'ilon_start:{ilon_start}, ilon_end:{ilon_end}')
+                    ilon_start = max(ilon_start, 0)
+                    ilon_start = min(ilon_start, self.gd.ibounds.lon[1])
+                    ilon_end = max(ilon_end, 0)
+                    ilon_end = min(ilon_end, self.gd.ibounds.lon[1])
+                    if ilon_start == ilon_end:
+                        ilon_end += 1
+                    slice_ilats = slice(ilat_start, ilat_end)
+                    slice_ilons = slice(ilon_start, ilon_end)
+
+                    print('slice_lats:', slice_ilats)
+                    print('slice_lons:', slice_ilons)
+                else:
+                    err_msg = 'if loc.lat/loc.lon are float, \
+                    gd (GridData) must be given'
+                    raise ValueError(err_msg)
+            ret = self.get_data(slice_dates, slice_ilats,
+                                slice_ilons, layer_mean, simplify)
             if simplify and isinstance(ret, _xr.DataArray):
                 ret = _np.squeeze(ret)
+            ret = ret.expand_dims({'sta': 1})
+            ret = ret.assign_coords(sta=[loc.name])
         if ret is not None:
             return ret
         err_msg = 'loc must be Location object or list of Location objects'
         raise ValueError(err_msg)
 
-    def get_data(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
-        return self._pp_.get_data(slice_dates, slice_ilats, slice_ilons)
+    def get_data(self, slice_dates=None, slice_ilats=None, slice_ilons=None,
+                 layer_mean=False, simplify=True):
+        return self._pp_.get_data(slice_dates, slice_ilats, slice_ilons,
+                                  layer_mean, simplify)
 
-    def iterate(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
-        yield self._pp_.iterate(slice_dates, slice_ilats, slice_ilons)
+    def iter(self, slice_dates=None, slice_ilats=None, slice_ilons=None,
+             layer_mean=False, simplify=True):
+        for i in self._pp_.iter(slice_dates, slice_ilats, slice_ilons,
+                                layer_mean, simplify):
+            yield i
 
 
 class PostProc:
@@ -452,9 +574,15 @@ class PostProc:
                  for k in dom_names}
         self.domains = Domains(doms2)
 
-    def get_data(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
-        ret = list(self._iterate_(slice_dates, slice_ilats,
-                                  slice_ilons, iterate=False))
+    def __iter__(self):
+        for i in self.iter():
+            yield i
+
+    def get_data(self, slice_dates=None, slice_ilats=None, slice_ilons=None,
+                 layer_mean=False, simplify=True):
+        ret = list(self._iter_(slice_dates, slice_ilats,
+                               slice_ilons, layer_mean, simplify,
+                               iterate=False))
         if len(ret) > 1:
             ret = {k: [r[k] for r in ret] for k in ret[0].keys()}
             ret = {k: _xr.concat(v, 't') for k, v in ret.items()}
@@ -464,11 +592,14 @@ class PostProc:
             ret = list(ret.values())[0]
         return ret
 
-    def iterate(self, slice_dates=None, slice_ilats=None, slice_ilons=None):
-        yield self._iterate_(slice_dates, slice_ilats, slice_ilons)
+    def iter(self, slice_dates=None, slice_ilats=None, slice_ilons=None,
+             layer_mean=False, simplify=True):
+        for i in self._iter_(slice_dates, slice_ilats, slice_ilons,
+                             layer_mean, simplify):
+            yield i
 
-    def _iterate_(self, slice_dates=None, slice_ilats=None, slice_ilons=None,
-                  iterate=True):
+    def _iter_(self, slice_dates=None, slice_ilats=None, slice_ilons=None,
+               layer_mean=False, simplify=True, iterate=True):
         def expandgrid(*itrs):
             import itertools
             product = list(itertools.product(*itrs))
@@ -479,9 +610,9 @@ class PostProc:
         g = expandgrid(self.dom_names, self.proj_names, pol_names)
         g = list(map(tuple, zip(*g)))
 
-        it = {i: _get_data2_(i[0], i[1], i[2], self.years, self.months,
+        it = {i: _get_data2_(i[0], i[1], i[2],
                              slice_dates, slice_ilats, slice_ilons,
-                             gd=self._gd_, iterate=iterate)
+                             layer_mean, self._gd_, iterate)
               for i in g}
         counter = 0
         while True:
@@ -492,6 +623,9 @@ class PostProc:
                     d[k] = d[k].expand_dims(dict(zip(dim_names, [1, 1, 1])))
 
                 d = _concat_(d, dim_names)
+                if simplify:
+                    for k in d:
+                        d[k] = _np.squeeze(d[k])
                 yield d
 
             except StopIteration:
