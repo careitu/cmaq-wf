@@ -1,0 +1,11 @@
+region, city, station, lat, lon
+aegean, izmir, alsancak ibb, 27.1444, 38.4322
+aegean, izmir, gaziemir, 27.134, 38.3143
+aegean, manisa, manisa, 27.4049, 38.6154
+aegean, manisa, soma, 27.6129, 39.1814
+aegean, afyon, afyon, 30.5279, 38.7734
+mediterranean, antalya, antalya, 30.7004, 36.9148
+mediterranean, adana, catalan, 35.2645, 37.1867
+mediterranean, adana, dogankent, 35.3491, 36.8545
+mediterranean, adana, meteoroloji, 35.344, 37.004
+mediterranean, adana, valilik, 35.3125, 37.0014
