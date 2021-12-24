@@ -197,7 +197,8 @@ class Location:
         name = f'({self.name})' if self.name is not None else ''
         return f'Location:{name} {{' + \
                ' '.join([f" {k}: {v}" for k, v in self.__dict__.items()
-                         if v is not None and k != 'name']) + '}}'
+                         if v is not None and 
+                         k in ['lat', 'lon', 'ilat', 'ilon']]) + '}}'
 
     def is_in(self, x):
         if not isinstance(x, (Domain, GridData)):
