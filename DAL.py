@@ -187,9 +187,10 @@ def _haversine_(lon1, lat1, lon2, lat2):
 
 
 class Location:
-    def __init__(self, lat, lon, ilat=None, ilon=None, name=None):
+    def __init__(self, lat, lon, ilat=None, ilon=None, name=None,
+                 city=None, region=None):
         d = {'lat': lat, 'lon': lon, 'ilat': ilat,
-             'ilon': ilon, 'name': name}
+             'ilon': ilon, 'name': name, 'city': city, 'region': region}
         self.__dict__.update(d)
 
     def __repr__(self):
