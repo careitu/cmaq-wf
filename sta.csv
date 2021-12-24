@@ -1,4 +1,4 @@
-region, city, station, loc_name, lat, lon
+region, city, station, loc_name, lon, lat
 aegean, izmir, alsancak ibb, alsancak, 27.1444, 38.4322
 aegean, izmir, gaziemir, gaziemir, 27.134, 38.3143
 aegean, manisa, manisa, manisa, 27.4049, 38.6154
