@@ -61,10 +61,10 @@ def load_obs_data(
                                               [len(obs.dims), len(obs.dims) + 1])
                         obs = obs.expand_dims(
                             dict(zip(['sta', 'project', 'pol_name'],
-                                     [1, 1, 1, 1])))
+                                     [1, 1, 1])))
                         obs = obs.assign_coords(
-                            Latitude=('y', [r[4]]),
-                            Longitude=('x', [r[5]]),
+                            Latitude=('y', [r[5]]),
+                            Longitude=('x', [r[4]]),
                             project=['obs'],
                             pol_name=[pn], sta=[r[3]])
                         if dum is None:
@@ -97,7 +97,7 @@ pols = dict(zip(['co', 'nox', 'o3', 'so2', 'pm10', 'pm25'],
 obs = load_obs_data(sta, simplify=False)
 obs_dates = obs.coords['time'].values
 obs_pol_names = obs.coords['pol_name'].values.tolist()
-# obs.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'so2_ugm3']
+obs.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'so2_ugm3']
 # these are the pollutant names which are in station data.
 selected_pols = [pols[p] for p in obs_pol_names]
 
@@ -117,6 +117,7 @@ dmed = pp.domains.mediterranean.get_data_loc(
     loc=locs, delta=0, layer_mean=False, simplify=False)
 
 doms = _xr.concat([daegean, dmed], dim='sta')
+doms.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'so2_ugm3']
 # doms = _np.squeeze(doms)
 
 model_dates = daegean.coords['time'].values
@@ -124,4 +125,7 @@ model_dates = daegean.coords['time'].values
 # make sure observation dates are same with model dates
 sel_obs = obs[:,:,:,[i in model_dates for i in obs_dates],:,:]
 
+# concat observations and model results
 data = _xr.concat([sel_obs, doms], dim='project')
+# if you want you can drop 1-length dimensions
+data = _np.squeeze(data)
