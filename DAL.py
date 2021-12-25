@@ -53,20 +53,21 @@ def _get_data2_(dom_names, proj, pol_names,
 
     if (type_ilats, type_ilons) == (float, float):
         if gd is not None:
+            mid_lat = (slice_ilats.start + slice_ilats.stop) / 2
+            mid_lon = (slice_ilons.start + slice_ilons.stop) / 2
             l1 = gd.nearest_grid_loc(slice_ilats.start, slice_ilons.start)
             l2 = gd.nearest_grid_loc(slice_ilats.stop, slice_ilons.stop)
             ilats = (l1.ilat, l2.ilat)
             ilats = (min(ilats), max(ilats))
-            # mid_ilat = (ilats[0] + ilats[1]) / 2
             if ilats[0] == ilats[1]:
                 ilats = (min(ilats), max(ilats) + 1)
-                # mid_ilat = ilats[0]
+                mid_lat = slice_ilats.start
+
             ilons = (l1.ilon, l2.ilon)
             ilons = (min(ilons), max(ilons))
-            # mid_ion = (ilons[0] + ilons[1]) / 2
             if ilons[0] == ilons[1]:
                 ilons = (min(ilons), max(ilons) + 1)
-                # mid_ilon = ilons[0]
+                mid_lon = slice_ilons.start
             slice_ilats = slice(ilats[0], ilats[1])
             slice_ilons = slice(ilons[0], ilons[1])
         else:
@@ -189,16 +190,25 @@ def _haversine_(lon1, lat1, lon2, lat2):
 class Location:
     def __init__(self, lat, lon, ilat=None, ilon=None, name=None,
                  city=None, region=None):
+        # if lat is not None:
+        #     lat = float(lat)
+        # if lon is not None:
+        #     lon = float(lon)
+        # if ilat is not None:
+        #     ilat = int(ilat)
+        # if ilon is not None:
+        #     ilon = int(ilon)
         d = {'lat': lat, 'lon': lon, 'ilat': ilat,
              'ilon': ilon, 'name': name, 'city': city, 'region': region}
         self.__dict__.update(d)
 
     def __repr__(self):
         name = f'({self.name})' if self.name is not None else ''
-        return f'Location:{name} {{' + \
-               ' '.join([f" {k}: {v}" for k, v in self.__dict__.items()
-                         if v is not None and 
-                         k in ['lat', 'lon', 'ilat', 'ilon']]) + '}}'
+        latlon = ' '.join([f"{k}: {v:.5f}" for k, v in self.__dict__.items()
+                         if v is not None and k in ['lat', 'lon']])
+        ilatlon = ' '.join([f"{k}: {v}" for k, v in self.__dict__.items()
+                         if v is not None and k in ['ilat', 'ilon']])
+        return f'Location:{name} {{' + latlon + ' ' + ilatlon + '}'
 
     def is_in(self, x):
         if not isinstance(x, (Domain, GridData)):
@@ -240,15 +250,23 @@ class ncDates:
         return ncDates(self.xarr.loc[slice_dates])
 
     @classmethod
+    def _get_dates_from_dates_(cls, dates):
+        xarr = _xr.DataArray(range(0, len(dates)),
+                             [("time", _pd.to_datetime(dates))])
+        return xarr
+
+    @classmethod
     def _get_dates_from_nc_(cls, nc_file):
         nc = _nc.Dataset(nc_file)
         TFLAG = nc.variables['TFLAG'][:, 0, :]
         nc.close()
         dates = [f'{i[0]} {i[1]:06d}' for i in TFLAG]
         dates = [_dt.strptime(i, '%Y%j %H%M%S') for i in dates]
-        xarr = _xr.DataArray(range(0, len(dates)),
-                             [("time", _pd.to_datetime(dates))])
-        return xarr
+        return cls._get_dates_from_dates_(dates)
+
+    @classmethod
+    def from_dates(cls, dates):
+        return cls(cls._get_dates_from_dates_(dates))
 
     @classmethod
     def from_nc_file(cls, nc_file):
@@ -300,10 +318,10 @@ class GridData:
         self.__dict__.update(data)
         self.__dict__.update(atts)
         Bounds = _nt('Bounds', ['lat', 'lon'])
-        self.bounds = Bounds([self.lats.min(), self.lats.max()],
-                             [self.lons.min(), self.lons.max()])
-        self.ibounds = Bounds([0, self.NROWS - 1],
-                              [0, self.NCOLS - 1])
+        self.bounds = Bounds([float(self.lats.min()), float(self.lats.max())],
+                             [float(self.lons.min()), float(self.lons.max())])
+        self.ibounds = Bounds([0, int(self.NROWS - 1)],
+                              [0, int(self.NCOLS - 1)])
 
     def __repr__(self):
         s = 'Grid:\n'
@@ -344,9 +362,11 @@ class GridData:
             ilat = min(ilat, self.NROWS - 1)
             ilon = max(ilon, 0)
             ilon = min(ilon, self.NCOLS - 1)
-        return Location(self.lats[ilat, ilon],
-                        self.lons[ilat, ilon],
-                        ilat, ilon, name)
+        # lat = float(self.lats[ilat, ilon])
+        # lon = float(self.lons[ilat, ilon])
+        lat = self.lats[ilat, ilon]
+        lon = self.lons[ilat, ilon]
+        return Location(lat, lon, ilat, ilon, name)
 
     def nearest_grid_hav(self, lat, lon, name=None):
         # lon, lat = 27.1633, 38.4217 - İzmir
@@ -443,7 +463,6 @@ class Domain:
                 data = data[0]
             ret = data
         if isinstance(loc, Location):
-            # print(loc.name)
             if loc.name is None:
                 import random
                 n = random.randint(0, 99999)
@@ -453,35 +472,30 @@ class Domain:
             if (type(loc.lat), type(loc.lon)) == (float, float):
                 if self.gd is not None:
                     l1 = self.nearest_grid_loc(loc)
-                    print(f'l1 = {l1}')
                     ilat_start, ilat_end = l1.ilat - delta, l1.ilat + delta + 1
-                    print(f'ilat_start:{ilat_start}, ilat_end:{ilat_end}')
                     ilat_start = max(ilat_start, 0)
                     ilat_start = min(ilat_start, self.gd.ibounds.lat[1])
                     ilat_end = max(ilat_end, 0)
                     ilat_end = min(ilat_end, self.gd.ibounds.lat[1])
                     if ilat_start == ilat_end:
                         ilat_end += 1
+                    slice_ilats = slice(ilat_start, ilat_end)
 
                     ilon_start, ilon_end = l1.ilon - delta, l1.ilon + delta + 1
-                    print(f'ilon_start:{ilon_start}, ilon_end:{ilon_end}')
                     ilon_start = max(ilon_start, 0)
                     ilon_start = min(ilon_start, self.gd.ibounds.lon[1])
                     ilon_end = max(ilon_end, 0)
                     ilon_end = min(ilon_end, self.gd.ibounds.lon[1])
                     if ilon_start == ilon_end:
                         ilon_end += 1
-                    slice_ilats = slice(ilat_start, ilat_end)
                     slice_ilons = slice(ilon_start, ilon_end)
-
-                    print('slice_lats:', slice_ilats)
-                    print('slice_lons:', slice_ilons)
                 else:
                     err_msg = 'if loc.lat/loc.lon are float, \
                     gd (GridData) must be given'
                     raise ValueError(err_msg)
             ret = self.get_data(slice_dates, slice_ilats,
                                 slice_ilons, layer_mean, simplify)
+            ret = ret.squeeze(dim='domain')
             if simplify and isinstance(ret, _xr.DataArray):
                 ret = _np.squeeze(ret)
             ret = ret.expand_dims({'sta': 1})
@@ -545,7 +559,8 @@ class PostProc:
 
         # check pol names are defined in project settings
         for p in pol_names:
-            if p.lower() not in p0.pols.keys():
+            proj_pols = [p.lower() for p in list(p0.pols.keys())]
+            if p.lower() not in proj_pols:
                 err_str = "Pollutant {} can not be found in settings"
                 raise ValueError(err_str.format(p))
 
