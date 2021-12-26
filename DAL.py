@@ -456,7 +456,6 @@ class Domain:
             data = [self.get_data_loc(slice_dates, lo, delta, layer_mean,
                                       simplify) for lo in loc]
             if len(data) > 1:
-                return data
                 data = _xr.concat(data, dim='sta')
             else:
                 data = data[0]

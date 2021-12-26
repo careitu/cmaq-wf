@@ -9,8 +9,7 @@ import numpy as _np
 import pandas as _pd
 import xarray as _xr
 from airdb import Database as _database
-# from DAL import Location
-# from DAL import PostProc
+from DAL import Location as _Location
 
 class StaData:
     def __init__(self, data=None, file='sta.csv'):
@@ -27,7 +26,7 @@ class StaData:
             self.__dict__.update(data)
         else:
             data = list(data.values())[0]
-            self.loc = {i[3]: Location(float(i[5]), float(i[4]), name=i[3],
+            self.loc = {i[3]: _Location(float(i[4]), float(i[5]), name=i[3],
                                        city=i[1], region=i[0])
                         for i in  data.values.tolist()}
             self.__mem__ = self.loc
@@ -87,60 +86,3 @@ def load_obs_data(
         obs = _np.squeeze(obs)
     return obs
 
-# --------------
-
-# load Stations
-sta = StaData()
-dom_names=['aegean', 'mediterranean',
-           'south_central_anatolia', 'central_blacksea']
-pols = dict(zip(['co', 'nox', 'o3', 'so2', 'pm10', 'pm25'], 
-                ['co', 'nox', 'o3', 'so2_ugm3', 'pm10', 'pm25_tot']))
-
-# load observations
-obs = load_obs_data(sta, simplify=False)
-obs_dates = obs.coords['time'].values
-obs_pol_names = obs.coords['pol_name'].values.tolist()
-obs.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'pm25_tot', 'so2_ugm3']
-# these are the pollutant names which are in station data.
-selected_pols = [pols[p] for p in obs_pol_names]
-
-# load model data
-pp = PostProc(dom_names=dom_names, pol_names=obs_pol_names)
-
-# stations located in aegean
-locs=list(sta.aegean.loc.values())
-# ngl = [pp.domains.aegean.nearest_grid_loc(lo) for lo in locs]
-daegean = pp.domains.aegean.get_data_loc(
-    loc=locs, delta=0, layer_mean=False, simplify=False)
-
-# stations located in mediterranean
-locs=list(sta.mediterranean.loc.values())
-# ngl = [pp.domains.aegean.nearest_grid_loc(lo) for lo in locs]
-dmed = pp.domains.mediterranean.get_data_loc(
-    loc=locs, delta=0, layer_mean=False, simplify=False)
-
-# stations located in central_blacksea
-locs=list(sta.central_blacksea.loc.values())
-# ngl = [pp.domains.aegean.nearest_grid_loc(lo) for lo in locs]
-dcent = pp.domains.central_blacksea.get_data_loc(
-    loc=locs, delta=0, layer_mean=False, simplify=False)
-
-# stations located in south_central_anatolia
-locs=list(sta.south_central_anatolia.loc.values())
-# ngl = [pp.domains.aegean.nearest_grid_loc(lo) for lo in locs]
-dsouth = pp.domains.south_central_anatolia.get_data_loc(
-    loc=locs, delta=0, layer_mean=False, simplify=False)
-
-doms = _xr.concat([daegean, dmed, dcent, dsouth], dim='sta')
-doms.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'pm25_tot', 'so2_ugm3']
-# doms = _np.squeeze(doms)
-
-model_dates = daegean.coords['time'].values
-
-# make sure observation dates are same with model dates
-sel_obs = obs[:,:,:,[i in model_dates for i in obs_dates],:,:]
-
-# concat observations and model results
-data = _xr.concat([sel_obs, doms], dim='project')
-# if you want you can drop 1-length dimensions
-data = _np.squeeze(data)
