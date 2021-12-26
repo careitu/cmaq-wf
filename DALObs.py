@@ -15,7 +15,8 @@ from airdb import Database as _database
 class StaData:
     def __init__(self, data=None, file='sta.csv'):
         if data is None:
-            data = _pd.read_csv(file, skipinitialspace=True)
+            data = _pd.read_csv(file, skipinitialspace=True,
+                                skip_blank_lines=True)
         if not isinstance(data, _pd.DataFrame):
             raise ValueError('data must be pandas DataFrame')
 
@@ -74,7 +75,9 @@ def load_obs_data(
                 if dum1 is None:
                     dum1 = dum
                 else:
-                    dum1 = _xr.concat([dum1, dum], dim='sta')
+                    if dum is not None:
+                        dum1 = _xr.concat([dum1, dum], dim='sta')
+            dum1 = dum1.assign_coords(domain=k)
             yield dum1
 
     db = _database('air', return_type='long_list')
@@ -97,7 +100,7 @@ pols = dict(zip(['co', 'nox', 'o3', 'so2', 'pm10', 'pm25'],
 obs = load_obs_data(sta, simplify=False)
 obs_dates = obs.coords['time'].values
 obs_pol_names = obs.coords['pol_name'].values.tolist()
-obs.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'so2_ugm3']
+obs.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'pm25_tot', 'so2_ugm3']
 # these are the pollutant names which are in station data.
 selected_pols = [pols[p] for p in obs_pol_names]
 
@@ -116,8 +119,20 @@ locs=list(sta.mediterranean.loc.values())
 dmed = pp.domains.mediterranean.get_data_loc(
     loc=locs, delta=0, layer_mean=False, simplify=False)
 
-doms = _xr.concat([daegean, dmed], dim='sta')
-doms.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'so2_ugm3']
+# stations located in central_blacksea
+locs=list(sta.central_blacksea.loc.values())
+# ngl = [pp.domains.aegean.nearest_grid_loc(lo) for lo in locs]
+dcent = pp.domains.central_blacksea.get_data_loc(
+    loc=locs, delta=0, layer_mean=False, simplify=False)
+
+# stations located in south_central_anatolia
+locs=list(sta.south_central_anatolia.loc.values())
+# ngl = [pp.domains.aegean.nearest_grid_loc(lo) for lo in locs]
+dsouth = pp.domains.south_central_anatolia.get_data_loc(
+    loc=locs, delta=0, layer_mean=False, simplify=False)
+
+doms = _xr.concat([daegean, dmed, dcent, dsouth], dim='sta')
+doms.coords['pol_name'] = ['co', 'nox', 'o3', 'pm10', 'pm25_tot', 'so2_ugm3']
 # doms = _np.squeeze(doms)
 
 model_dates = daegean.coords['time'].values
