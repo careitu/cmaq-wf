@@ -190,14 +190,6 @@ def _haversine_(lon1, lat1, lon2, lat2):
 class Location:
     def __init__(self, lat, lon, ilat=None, ilon=None, name=None,
                  city=None, region=None):
-        # if lat is not None:
-        #     lat = float(lat)
-        # if lon is not None:
-        #     lon = float(lon)
-        # if ilat is not None:
-        #     ilat = int(ilat)
-        # if ilon is not None:
-        #     ilon = int(ilon)
         d = {'lat': lat, 'lon': lon, 'ilat': ilat,
              'ilon': ilon, 'name': name, 'city': city, 'region': region}
         self.__dict__.update(d)
@@ -317,11 +309,13 @@ class GridData:
         self.nc_cro_file = nc_cro_file
         self.__dict__.update(data)
         self.__dict__.update(atts)
+        self.NROWS = int(self.NROWS)
+        self.NCOLS = int(self.NCOLS)
         Bounds = _nt('Bounds', ['lat', 'lon'])
         self.bounds = Bounds([float(self.lats.min()), float(self.lats.max())],
                              [float(self.lons.min()), float(self.lons.max())])
-        self.ibounds = Bounds([0, int(self.NROWS - 1)],
-                              [0, int(self.NCOLS - 1)])
+        self.ibounds = Bounds([0, self.NROWS - 1],
+                              [0, self.NCOLS - 1])
 
     def __repr__(self):
         s = 'Grid:\n'
@@ -362,14 +356,11 @@ class GridData:
             ilat = min(ilat, self.NROWS - 1)
             ilon = max(ilon, 0)
             ilon = min(ilon, self.NCOLS - 1)
-        # lat = float(self.lats[ilat, ilon])
-        # lon = float(self.lons[ilat, ilon])
         lat = self.lats[ilat, ilon]
         lon = self.lons[ilat, ilon]
         return Location(lat, lon, ilat, ilon, name)
 
     def nearest_grid_hav(self, lat, lon, name=None):
-        # lon, lat = 27.1633, 38.4217 - İzmir
         lons = self.lons
         lats = self.lats
         h = _ma.empty(lats.shape)
