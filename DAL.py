@@ -341,24 +341,32 @@ class GridData:
     def get_latlon_at(self, i, j):
         return (self.lats[i, j], self.lons[i, j])
 
-    def nearest_grid_loc(self, lat, lon, name=None, raise_error=True):
-        from math import floor
-        x, y = self.proj(lon, lat)
-        ilon, ilat = (floor((x - self.XORIG) / self.XCELL),
-                      floor((y - self.YORIG) / self.YCELL))
-        if raise_error:
-            if ilon < 0 or ilon >= self.NCOLS:
-                raise ValueError('lon is out of domain bounds')
-            if ilat < 0 or ilat >= self.NROWS:
-                raise ValueError('lat is out of domain bounds')
-        else:
-            ilat = max(ilat, 0)
-            ilat = min(ilat, self.NROWS - 1)
-            ilon = max(ilon, 0)
-            ilon = min(ilon, self.NCOLS - 1)
-        lat = self.lats[ilat, ilon]
-        lon = self.lons[ilat, ilon]
-        return Location(lat, lon, ilat, ilon, name)
+    def nearest_grid_loc(self, lat, lon=None, raise_error=True):
+        def ngl(lat, lon, name, city, region):
+            from math import floor
+            x, y = self.proj(lon, lat)
+            ilon, ilat = (floor((x - self.XORIG) / self.XCELL),
+                          floor((y - self.YORIG) / self.YCELL))
+            if raise_error:
+                if ilon < 0 or ilon >= self.NCOLS:
+                    raise ValueError('lon is out of domain bounds')
+                if ilat < 0 or ilat >= self.NROWS:
+                    raise ValueError('lat is out of domain bounds')
+            else:
+                ilat = max(ilat, 0)
+                ilat = min(ilat, self.NROWS - 1)
+                ilon = max(ilon, 0)
+                ilon = min(ilon, self.NCOLS - 1)
+            lat = self.lats[ilat, ilon]
+            lon = self.lons[ilat, ilon]
+            return Location(lat, lon, ilat, ilon, name, city, region)
+
+        name, city, region = None, None, None
+        if lon is None and isinstance(lat, Location):
+            loc = lat
+            lat, lon, name, city, region = loc.lat, loc.lon, loc.name, \
+                                           loc.city, loc.region
+        return ngl(lat, lon, name, city, region)
 
     def nearest_grid_hav(self, lat, lon, name=None):
         lons = self.lons
@@ -431,9 +439,8 @@ class Domain:
     def contains(self, loc):
         return self.gd.contains(loc)
 
-    def nearest_grid_loc(self, loc, name=None):
-        return self.gd.nearest_grid_loc(loc.lat, loc.lon, name,
-                                        raise_error=False)
+    def nearest_grid_loc(self, loc):
+        return self.gd.nearest_grid_loc(loc, raise_error=False)
 
     def get_data_loc(self, slice_dates=None, loc=None, delta=0,
                      layer_mean=False, simplify=True):
@@ -449,6 +456,7 @@ class Domain:
             data = [self.get_data_loc(slice_dates, lo, delta, layer_mean,
                                       simplify) for lo in loc]
             if len(data) > 1:
+                return data
                 data = _xr.concat(data, dim='sta')
             else:
                 data = data[0]
