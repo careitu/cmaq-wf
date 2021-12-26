@@ -1,28 +1,26 @@
-region, city, station, loc_name, lon, lat
+region, city, station, loc_name, lat, lon
 
-aegean, afyon, afyon, Afyon, 30.5279, 38.7734
+aegean, afyon, afyon, Afyon, 38.7734, 30.5279
 aegean, aydin, aydin, Aydın, 37.8404, 27.8368
-aegean, denizli, bayramyeri, Denizli - Bayramyeri, 37.7802, 29.0804
+aegean, denizli, bayramyeri, Denizli - Bayramyeri, 37.7802, 29.0804s
 aegean, denizli, merkezefendi, Denizli - Merkezefendi, 37.7761, 29.032
-aegean, izmir, alsancak ibb, İzmir - Alsancak, 27.1444, 38.4322
+aegean, izmir, alsancak ibb, İzmir - Alsancak, 38.4322, 27.1444
 aegean, izmir, bayrakli ibb, İzmir - Bayraklı, 38.4622, 27.1666
 aegean, izmir, bornova ibb, İzmir - Bornova, 38.4691, 27.2213
 aegean, izmir, cigli ibb, İzmir - Çiğli, 38.498, 27.0677
-aegean, izmir, gaziemir, İzmir - Gaziemir, 27.134, 38.3143
+aegean, izmir, gaziemir, İzmir - Gaziemir, 38.3143, 27.134
 aegean, izmir, guzelyali ibb, İzmir - Güzelyalı, 38.3958, 27.0827
 aegean, izmir, karsiyaka ibb, İzmir - Karşıyaka, 38.4541, 27.1097
 aegean, izmir, sirinyer ibb, İzmir - Şirinyer, 38.3825, 27.1483
 aegean, izmir, seferihisar emep, İzmir - Seferihisar, 38.2304, 26.8329
-aegean, manisa, manisa, Manisa - Merkez, 27.4049, 38.6154
-aegean, manisa, soma, Manisa - Soma, 27.6129, 39.1814
+aegean, manisa, manisa, Manisa - Merkez, 38.6154, 27.4049
+aegean, manisa, soma, Manisa - Soma, 39.1814, 27.6129
 aegean, mugla, musluhittin, Muğla - Musluhittin, 37.2137, 28.3568
-aegean, muğla, yatagan, Muğla - Yatağan, 28.144347, 37.355206
-aegean, usak, usak, Uşak, 29.405173, 38.6773538
+aegean, muğla, yatagan, Muğla - Yatağan, 37.355206, 28.144347
+aegean, usak, usak, Uşak, 38.6773538, 29.405173
 
 central_blacksea, giresun, giresun, Giresun - Merkez, 40.9071, 38.362
 central_blacksea, giresun, giresun, Giresun - Gemilerçekeği, 40.9144, 38.3985
-central_blacksea, hatay, antakya, Hatay - Antakya, 36.208, 36.1525
-central_blacksea, hatay, iskenderun, Hatay - İskenderun, 36.7141, 36.2239
 central_blacksea, ordu, fatsa, Ordu - Fatsa, 41.0269, 37.5001
 central_blacksea, ordu, karsiyaka, Ordu - Karşıyaka, 40.9739, 37.9076
 central_blacksea, ordu, stadyum, Ordu - Stadyum, 40.9838, 37.8782
@@ -41,10 +39,12 @@ central_blacksea, tokat, erbaa, Tokat - Erbaa, 40.6717, 36.5616
 central_blacksea, tokat, meydan, Tokat - Meydan, 40.3186, 36.5521
 central_blacksea, tokat, turhal, Tokat - Turhal, 40.3856, 36.0827
 
-mediterranean, adana, catalan, Adana - Çatalan, 35.2645, 37.1867
-mediterranean, adana, dogankent, Adana - Doğankent, 35.3491, 36.8545
-mediterranean, adana, meteoroloji, Adana - Meteoroloji, 35.344, 37.004
-mediterranean, adana, valilik, Adana - Valilik, 35.3125, 37.0014
+mediterranean, adana, catalan, Adana - Çatalan, 37.1867, 35.2645
+mediterranean, adana, dogankent, Adana - Doğankent, 36.8545, 35.3491
+mediterranean, adana, meteoroloji, Adana - Meteoroloji, 37.004, 35.344
+mediterranean, adana, valilik, Adana - Valilik, 37.0014, 35.3125
+mediterranean, hatay, antakya, Hatay - Antakya, 36.208, 36.1525
+mediterranean, hatay, iskenderun, Hatay - İskenderun, 36.7141, 36.2239
 mediterranean, antalya, antalya, Antalya, 36.9148, 30.7004
 mediterranean, burdur, burdur, Burdur, 37.7221, 30.2938
 mediterranean, gaziantep, gaziantep, Gaziantep, 37.0583, 37.351
