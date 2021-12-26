@@ -493,7 +493,7 @@ class Domain:
                     raise ValueError(err_msg)
             ret = self.get_data(slice_dates, slice_ilats,
                                 slice_ilons, layer_mean, simplify)
-            ret = ret.squeeze(dim='domain')
+            # ret = ret.squeeze(dim='domain')
             if simplify and isinstance(ret, _xr.DataArray):
                 ret = _np.squeeze(ret)
             ret = ret.expand_dims({'sta': 1})
@@ -621,6 +621,7 @@ class PostProc:
             return [[x[i] for x in product] for i in range(len(itrs))]
 
         pol_names = [p.name for p in self.pols.values()]
+        rev_pols = dict(zip([i.lower() for i in pol_names], self.pol_names))
         dim_names = ['domain', 'project', 'pol_name']
         g = expandgrid(self.dom_names, self.proj_names, pol_names)
         g = list(map(tuple, zip(*g)))
@@ -641,6 +642,10 @@ class PostProc:
                 if simplify:
                     for k in d:
                         d[k] = _np.squeeze(d[k])
+                for k in d:
+                    if 'pol_name' in d[k].coords.dims:
+                        d[k].coords['pol_name'] = [rev_pols[i.lower()]
+                            for i in d[k].coords['pol_name'].values]
                 yield d
 
             except StopIteration:
