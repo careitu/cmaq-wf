@@ -493,7 +493,9 @@ class Domain:
                     raise ValueError(err_msg)
             ret = self.get_data(slice_dates, slice_ilats,
                                 slice_ilons, layer_mean, simplify)
-            # ret = ret.squeeze(dim='domain')
+            if 'domain' in ret.dims:
+                if ret.shape[ret.dims.index('domain')] == 1:
+                    ret = ret.squeeze(dim='domain')
             if simplify and isinstance(ret, _xr.DataArray):
                 ret = _np.squeeze(ret)
             ret = ret.expand_dims({'sta': 1})
