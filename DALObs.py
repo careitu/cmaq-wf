@@ -56,7 +56,7 @@ def load_obs_data(
                     if len(q2) > 0:
                         pn, r, q = pn2, r2, q2
                         obs = _xr.DataArray(q[5], dims=['time'], 
-                                            coords={'time': (('t'), q[4])})
+                                            coords={'time': (('time'), q[4])})
                         obs = obs.expand_dims(['y', 'x'],
                                               [len(obs.dims), len(obs.dims) + 1])
                         obs = obs.expand_dims(
