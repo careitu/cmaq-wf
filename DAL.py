@@ -602,7 +602,7 @@ class PostProc:
                                iterate=False))
         if len(ret) > 1:
             ret = {k: [r[k] for r in ret] for k in ret[0].keys()}
-            ret = {k: _xr.concat(v, 't') for k, v in ret.items()}
+            ret = {k: _xr.concat(v, 'time') for k, v in ret.items()}
         else:
             ret = ret[0]
         if isinstance(ret, dict) and len(ret) == 1:
