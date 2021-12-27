@@ -108,8 +108,8 @@ def _get_data2_(dom_names, proj, pol_names,
                             pol = nco.variables[pol_name]
                             pol = pol[k, :, slice_ilats, slice_ilons]
                             pol = _xr.DataArray(
-                                pol, dims=['t', 'y', 'x'],
-                                coords={'time': (('t'), [dates.values[i]]),
+                                pol, dims=['time', 'y', 'x'],
+                                coords={'time': (('time'), [dates.values[i]]),
                                         'Latitude': (('y', 'x'), lats),
                                         'Longitude': (('y', 'x'), lons)})
                             if layer_mean:
@@ -127,8 +127,8 @@ def _get_data2_(dom_names, proj, pol_names,
                             pol = pol[dates.indices, :, slice_ilats,
                                       slice_ilons]
                             pol = _xr.DataArray(
-                                pol, dims=['t', 'l', 'y', 'x'],
-                                coords={'time': (('t'), dates.values),
+                                pol, dims=['time', 'l', 'y', 'x'],
+                                coords={'time': (('time'), dates.values),
                                         'layer': (('l'), [1]),
                                         'Latitude': (('y', 'x'), lats),
                                         'Longitude': (('y', 'x'), lons)})
