@@ -1,6 +1,5 @@
 region, city, station, loc_name, lat, lon
 
-aegean, afyon, afyon, Afyon, 38.7734, 30.5279
 aegean, aydin, aydin, Aydın, 37.8404, 27.8368
 aegean, denizli, bayramyeri, Denizli - Bayramyeri, 37.7802, 29.0804
 aegean, denizli, merkezefendi, Denizli - Merkezefendi, 37.7761, 29.032
@@ -19,6 +18,13 @@ aegean, mugla, musluhittin, Muğla - Musluhittin, 37.2137, 28.3568
 aegean, muğla, yatagan, Muğla - Yatağan, 37.355206, 28.144347
 aegean, usak, usak, Uşak, 38.6773538, 29.405173
 
+central_blacksea, amasya, amasya, Amasya Merkez, 40.6675, 35.8355
+central_blacksea, amasya, merzifon, Amasya - Merzifon, 40.8743, 35.4574
+central_blacksea, amasya, suluova, Amasya - Suluova, 40.8202, 35.6421
+central_blacksea, amasya, sehzade, Amasya - Şehzade, 40.6572, 35.8379
+central_blacksea, corum, corum, Çorum - Merkez, 40.5543, 34.9631
+central_blacksea, corum, bahabey, Çorum - Bahabey, 40.5465, 34.9672
+central_blacksea, corum, mimar sinan, Çorum - Mimar Sinan, 40.5314, 34.9443
 central_blacksea, giresun, giresun, Giresun - Merkez, 40.9071, 38.362
 central_blacksea, giresun, giresun, Giresun - Gemilerçekeği, 40.9144, 38.3985
 central_blacksea, ordu, fatsa, Ordu - Fatsa, 41.0269, 37.5001
@@ -34,6 +40,9 @@ central_blacksea, samsun, yuzuncuyil, Samsun - Yüzüncüyıl, 41.291, 36.3285
 central_blacksea, sinop, sinop, Sinop - Merkez, 42.029, 35.1552
 central_blacksea, sinop, boyabat, Sinop - Boyabat, 41.4612, 34.7769
 central_blacksea, sinop, erfelek, Sinop - Erfelek, 41.9457, 34.9927
+central_blacksea, sivas, basogretmen, Sivas - Başöğretmen, 39.7487, 37.0256
+central_blacksea, sivas, istasyon kavsagi, Sivas - Istasyon Kavşağı, 39.7472, 37.0131
+central_blacksea, sivas, meteoroloji, Sivas - Meteoroloji, 39.7437, 37.0017
 central_blacksea, tokat, tokat, Tokat - Merkez, 40.3263, 36.5551
 central_blacksea, tokat, erbaa, Tokat - Erbaa, 40.6717, 36.5616
 central_blacksea, tokat, meydan, Tokat - Meydan, 40.3186, 36.5521
@@ -43,26 +52,20 @@ mediterranean, adana, catalan, Adana - Çatalan, 37.1867, 35.2645
 mediterranean, adana, dogankent, Adana - Doğankent, 36.8545, 35.3491
 mediterranean, adana, meteoroloji, Adana - Meteoroloji, 37.004, 35.344
 mediterranean, adana, valilik, Adana - Valilik, 37.0014, 35.3125
+mediterranean, gaziantep, gaziantep, Gaziantep, 37.0583, 37.351
 mediterranean, hatay, antakya, Hatay - Antakya, 36.208, 36.1525
 mediterranean, hatay, iskenderun, Hatay - Iskenderun, 36.7141, 36.2239
-mediterranean, antalya, antalya, Antalya, 36.9148, 30.7004
-mediterranean, burdur, burdur, Burdur, 37.7221, 30.2938
-mediterranean, gaziantep, gaziantep, Gaziantep, 37.0583, 37.351
-mediterranean, isparta, isparta, Isparta, 37.7602, 30.5794
-mediterranean, mersin, mersin, Mersin, 36.7727, 34.5568
 mediterranean, kahramanmaras, kahramanmaras, Kahramanmaraş - Merkez, 37.585, 36.8986
 mediterranean, kahramanmaras, elbistan, Kahramanmaraş - Elbistan, 38.2037, 37.1981
 mediterranean, kilis, kilis, Kilis, 36.7153, 37.1271
+mediterranean, mersin, mersin, Mersin, 36.7727, 34.5568
 mediterranean, osmaniye, osmaniye, Osmaniye, 37.0731, 36.2413
 
+south_central_anatolia, afyon, afyon, Afyon, 38.7734, 30.5279
 south_central_anatolia, aksaray, aksaray, Aksaray, 38.3644, 34.0285
-south_central_anatolia, amasya, amasya, Amasya Merkez, 40.6675, 35.8355
-south_central_anatolia, amasya, merzifon, Amasya - Merzifon, 40.8743, 35.4574
-south_central_anatolia, amasya, suluova, Amasya - Suluova, 40.8202, 35.6421
-south_central_anatolia, amasya, sehzade, Amasya - Şehzade, 40.6572, 35.8379
-south_central_anatolia, corum, corum, Çorum - Merkez, 40.5543, 34.9631
-south_central_anatolia, corum, bahabey, Çorum - Bahabey, 40.5465, 34.9672
-south_central_anatolia, corum, mimar sinan, Çorum - Mimar Sinan, 40.5314, 34.9443
+south_central_anatolia, antalya, antalya, Antalya, 36.9148, 30.7004
+south_central_anatolia, burdur, burdur, Burdur, 37.7221, 30.2938
+south_central_anatolia, isparta, isparta, Isparta, 37.7602, 30.5794
 south_central_anatolia, karaman, karaman, Karaman, 37.1709, 33.2271
 south_central_anatolia, kayseri, hurriyet, Kayseri - Hürriyet, 38.7147, 35.4705
 south_central_anatolia, kayseri, Melikgazi, Kayseri - Melikgazi, 38.7173, 35.4868
@@ -74,9 +77,6 @@ south_central_anatolia, konya, karatay belediye, Konya - Karatay, 37.8681, 32.51
 south_central_anatolia, konya, selcuklu belediye, Konya - Selçuklu Belediye, 37.9159, 32.5001
 south_central_anatolia, nevsehir, nevşehir, Nevşehir, 38.6232, 34.7014
 south_central_anatolia, nigde, nigde, Niğde, 37.9683, 34.6855
-south_central_anatolia, sivas, basogretmen, Sivas - Başöğretmen, 39.7487, 37.0256
-south_central_anatolia, sivas, istasyon kavsagi, Sivas - Istasyon Kavşağı, 39.7472, 37.0131
-south_central_anatolia, sivas, meteoroloji, Sivas - Meteoroloji, 39.7437, 37.0017
 
 
 
