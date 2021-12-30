@@ -23,7 +23,9 @@ class Metrics:
         self.rmse = Metrics.rmse(actual, predicted, axis, skipna).to_dataframe('RMSE')
         self.mae = Metrics.mae(actual, predicted, axis, skipna).to_dataframe('MAE')
         self.max_err = Metrics.max_error(actual, predicted, axis, skipna).to_dataframe('MAXERR')
-        self.df = pd.concat([self.rmse, self.mae['MAE'], self.max_err['MAXERR']], 1, join='inner')
+        self.mbe = Metrics.mbe(actual, predicted, axis, skipna).to_dataframe('MBE')
+        self.df = pd.concat([self.rmse, self.mae['MAE'], self.max_err['MAXERR'], self.mbe['MBE']], 1, join='inner')
+
 
     @classmethod
     def rmse(cls, actual, predicted, axis=None, skipna=None):
@@ -39,6 +41,16 @@ class Metrics:
     def max_error(cls, actual, predicted, axis=None, skipna=None):
         difa = abs(actual - predicted)
         return difa.max(axis=axis, skipna=skipna)
+
+    @classmethod
+    def mbe(cls, actual, predicted, axis=None, skipna=None):
+        difa = actual - predicted
+        return difa.mean(axis=axis, skipna=skipna)
+
+    @classmethod
+    def r_2(cls, actual, predicted, axis=None, skipna=None):
+        difa = actual - predicted
+        return difa.mean(axis=axis, skipna=skipna)
 
 
 def split_xarr_by_pols(data, obs, pol_names):
@@ -79,7 +91,24 @@ for k, v in pols.items():
     plt.close(g.fig)
     print(file_name)
 
+# plot scatter
+for k, v in pols.items():
+    vds = v.to_dataset(dim='project')
+    g = vds.plot.scatter(row='sta', x='obs',y='cityair', marker='+', c='grey', col_wrap=3, sharey=False, sharex=False)
+    # plt.xlim([0,300])
+    # plt.ylim([0,300])
+    # plt.axline((1, 1), slope=1)
+    g.fig.suptitle(k.upper(), y = 1.0)
+    file_name = '_'.join(('plot_scatter', k)) + '.pdf'
+    g.fig.savefig(file_name, bbox_inches='tight')
+    plt.close(g.fig)
+    print(file_name)
+
+
+
 # Calculate Metrics as pandas dataframe
+met = {k: Metrics(v[:, 0], v[:, 1], 1, True).df
+                     for k, v in pols.items()}
 metrics = pd.concat([Metrics(v[:, 0], v[:, 1], 1, True).df
                      for k, v in pols.items()])
 metrics = metrics.rename(columns={'pol_name': 'Pollutant'})
@@ -136,3 +165,4 @@ for k, v in p2025.items():
     g.fig.savefig(file_name, bbox_inches='tight')
     plt.close(g.fig)
     print(file_name)
+
