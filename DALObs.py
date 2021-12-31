@@ -63,8 +63,8 @@ def load_obs_data(
                             dict(zip(['sta', 'project', 'pol_name'],
                                      [1, 1, 1])))
                         obs = obs.assign_coords(
-                            Latitude=('y', [r[5]]),
-                            Longitude=('x', [r[4]]),
+                            Latitude=('y', [r[4]]),
+                            Longitude=('x', [r[5]]),
                             project=['obs'],
                             pol_name=[pn], sta=[r[3]])
                         if dum is None:
