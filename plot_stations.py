@@ -16,6 +16,8 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import shapely.geometry as sgeom
 import cartopy.feature as cfeature
+from adjustText import adjust_text
+from scipy import interpolate
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 def lambert_ticks(ax, ticks, axis='x'):
@@ -88,9 +90,7 @@ def lambert_ticks(ax, ticks, axis='x'):
     set_ticklabels = getattr(ax, 'set_{}ticklabels'.format(axis))
     set_ticklabels([axiss.get_major_formatter()(tick) for tick in ticklabels])
 
-
 def plot_station(locs, g):
-
     lons = np.array([l.lon for l in locs])
     lats = np.array([l.lat for l in locs])
     sta_names = [l.name for l in locs]
@@ -105,21 +105,22 @@ def plot_station(locs, g):
         standard_parallels=(46, 49))
     # ccrs_proj = ccrs.PlateCarree()
     points = ccrs_proj.transform_points(geo, lons, lats)
+
     res = '10m'
     grid_interval = 0.5
     xticks = list(np.arange(-180, 180, grid_interval))
     yticks = list(np.arange(-90, 90, grid_interval))
+
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1, projection=ccrs_proj)
     ax.xaxis.set_ticklabels([])
     ax.yaxis.set_ticklabels([])
-    ax.scatter(lons, lats, transform=geo)
-    for i, txt in enumerate(sta_names):
-        ax.annotate(txt, (points[i, 0], points[i, 1]))
-    # ax.plot(points[:, 0], points[:, 1], 'ro')
+    ax.scatter(lons, lats, edgecolors='b', transform=geo)
     ax.coastlines(resolution=res, alpha=0.7)
-    # ax.add_feature(cfeature.OCEAN)
-    # ax.add_feature(cfeature.LAND)
+    ax.add_feature(cfeature.OCEAN)
+    ax.add_feature(cfeature.LAND)
+    ax.add_feature(cfeature.BORDERS)
+    ax.add_feature(cfeature.LAKES, alpha=0.7)
     gl = ax.gridlines(xlocs=xticks, ylocs=yticks,
                       dms=True, color='indigo', alpha=0.5,
                       linestyle='--')
@@ -130,7 +131,17 @@ def plot_station(locs, g):
     plt.title(title)
     ax.set_extent([g.bounds.lon[0], g.bounds.lon[1],
                    g.bounds.lat[0], g.bounds.lat[1]])
-    plt.show()
+    texts = []
+    for x, y, s in zip(points[:, 0], points[:, 1], sta_names):
+        texts.append(plt.text(x, y, s))
+    f = interpolate.interp1d(points[:, 0], points[:, 1])
+    x = np.arange(min(points[:, 0]), max(points[:, 0]), 100)
+    y = f(x)
+    adjust_text(texts, x=x, y=y, autoalign='y',
+                only_move={'points':'y', 'texts':'y'}, force_points=100,
+                arrowprops=dict(arrowstyle="->", color='r', lw=0.5))
+    plt.savefig(f'plot_{title}.pdf', bbox_inches='tight')
+    plt.close(ax.figure)
 
 
 sta = StaData()  # load Stations
