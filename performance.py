@@ -78,6 +78,46 @@ actual = ds[:, 0]  # Observations
 # if NA percent is greater than 25%, exclude data from analysis
 pols = split_xarr_by_pols(ds, actual, pol_names)
 
+co = pols['co']
+sta_names = co.coords['sta']
+sta_names = sta_names.to_index().tolist()
+cities = [s.split('-')[0].strip() for s in sta_names]
+cities2 = list(set(cities))
+
+pols2 = {k: None for k in pol_names}
+for k, v in pols.items():
+    sta_names = v.coords['sta']
+    sta_names = sta_names.to_index().tolist()
+    cities = [s.split('-')[0].strip() for s in sta_names]
+    cities = [c.split(' ')[0].strip() for c in cities]
+    cities2 = list(set(cities))
+    print(cities2)
+    cit  = []
+    for c in cities2:
+        city = v[[c == c2 for c2 in cities]].mean(axis=0, skipna=True)
+        city = city.expand_dims(dict(zip(['city'], [1])))
+        city = city.assign_coords(city=[c])
+        cit.append(city)
+    cit2 = xr.concat(cit, dim='city')
+    pols2[k] = cit2
+
+import pickle
+with open('cities_dict.pickle', 'wb') as handle:
+    pickle.dump(pols2, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+izmir = co[2:6]
+
+co = co.assign_coords(cities=('sta', cities))
+
+cities = {k: None for k in list(set([s.split('-')[0].strip() for s in sta_names]))}
+for c in cities.keys():
+    for s in co:
+        sta_name = s.coords['sta'].values.tolist()
+        if 
+        print(s)
+
+
+
 # plot time series
 for k, v in pols.items():
     d = v[:, 0:2]

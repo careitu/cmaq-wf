@@ -9,7 +9,6 @@ Create datasets for analysis
 import numpy as _np
 import xarray as _xr
 
-from DAL import Location
 from DAL import PostProc
 from DALObs import StaData
 from DALObs import load_obs_data
@@ -18,8 +17,8 @@ from DALObs import load_obs_data
 # Conversion coefficients
 coefs = {'co': 1.18, 'nox': 1.95, 'o3': 2.03}
 # domain names
-dom_names=['aegean', 'mediterranean',
-           'south_central_anatolia', 'central_blacksea']
+dom_names = ['aegean', 'mediterranean',
+             'south_central_anatolia', 'central_blacksea']
 sta = StaData()  # load Stations
 
 # load observations
@@ -45,7 +44,7 @@ for k, c in coefs.items():
 # make sure observation dates are same with model dates
 obs_dates = obs.coords['time'].values
 model_dates = doms.coords['time'].values
-actual = obs[:,:,:,[i in model_dates for i in obs_dates],:,:]
+actual = obs[:, :, :, [i in model_dates for i in obs_dates], :, :]
 
 # if NA percent is greater than 25%, exclude data from analysis
 # selected = []
@@ -74,9 +73,12 @@ data = _np.squeeze(data)
 # save time series data to file
 data.to_netcdf('timeseries.nc')
 
+# Mean for cities
+
+
 # load mean data from post-proc files for reduction coefficients
 xd2 = [d.get_data_loc(loc=list(s.loc.values()), delta=1, layer_mean=True,
-                     simplify=False) for s, d in zip(sta, pp.domains)]
+                      simplify=False) for s, d in zip(sta, pp.domains)]
 doms2 = _xr.concat(xd2, dim='sta')
 for k, c in coefs.items():
     doms2.loc[{'pol_name': k}] = doms2.loc[{'pol_name': k}] * c
