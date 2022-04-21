@@ -50,6 +50,7 @@ _emis_vars_ = ['TFLAG', 'AACD', 'ACET', 'ALD2', 'ALDX', 'APIN', 'BENZ',
 
 
 def scale_emis_file(filename, factor, force=False):
+    """ Scale Emission File """
     nco = Dataset(filename, 'r+')
     log.info(f"Scaling Emission File '{filename}' by {factor}")
     variables = list(nco.variables.keys())
@@ -70,7 +71,7 @@ def scale_emis_file(filename, factor, force=False):
 
 
 def _parse_args_():
-    from _helper_functions_ import _create_argparser_
+    from _helper_functions_ import _create_argparser_  # @UnusedImport
     DESCRIPTION = 'Scale emission files by factor of a floating number\n\n' + \
                   'Project: {}\n  Path: {}\nCMAQ\n  Path: {}\n  version: {}'
     DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
@@ -89,11 +90,11 @@ def _parse_args_():
 
 
 if __name__ == "__main__":
-    from _helper_functions_ import ExitHelper
-    from _helper_functions_ import ScriptError
-    from _helper_functions_ import run_script_combine
-    from _helper_functions_ import expandgrid
-    from _helper_functions_ import get_days
+    # from _helper_functions_ import ExitHelper
+    # from _helper_functions_ import ScriptError
+    # from _helper_functions_ import run_script_combine
+    # from _helper_functions_ import expandgrid
+    # from _helper_functions_ import get_days
 
     a = _parse_args_()
 
@@ -134,5 +135,4 @@ if __name__ == "__main__":
         scale_emis_file(f2, factor, force)
         # base = os.path.basename(f)
         print(dir2, f2)
-
 
