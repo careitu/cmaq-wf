@@ -11,12 +11,15 @@ Python script to create plots
 import logging
 
 import sys
+from os import getcwd as _getcwd
 from os import makedirs as _makedirs
 from os import remove as _remove
 from os.path import split as _split
 from os.path import isdir as _isdir
+from os.path import isfile as _isfile
 from os.path import abspath as _abspath
 from pathlib import Path
+from filecmp import cmp as _cmp
 
 import shutil
 import numpy as np
@@ -34,9 +37,90 @@ fmt_str = '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s'
 formatter = logging.Formatter(fmt_str, datefmt='%Y-%m-%dT%H:%M:%S')
 # create file handler
 fh = logging.FileHandler(s.log.file)
-fh.setLevel(logging.DEBUG)
+fh.setLevel(logging.INFO)
 fh.setFormatter(formatter)
 log.addHandler(fh)
+
+
+def common_start(sa, sb):
+    """returns the longest common substring from the beginning of sa and sb"""
+    def _iter():
+        for a, b in zip(sa, sb):
+            if a == b:
+                yield a
+            else:
+                return
+
+    return ''.join(_iter())
+
+
+def _is_netcdf(f):
+    """ Check file is a valied netcdf file """
+    try:
+        xr.open_dataset(f, engine='netcdf4')
+    except OSError:
+        return False
+    return True
+
+
+def _update_is_required(f, dec_prec=2, complevel=5):
+    """ Check NetCDF file is compressed """
+    dp_str = 'decimal_precision'
+    compression_changed = False
+    with xr.open_dataset(f, engine='netcdf4') as ds:
+        for _, v in ds.variables.items():
+            if v.encoding['complevel'] != complevel:
+                compression_changed = True
+                break
+        if dp_str in ds.attrs.keys():
+            if ds.attrs[dp_str] is not None and dec_prec is not None:
+                if dec_prec >= ds.attrs[dp_str]:
+                    dec_prec = None
+        if dec_prec is not None:
+            compression_changed = True
+    return compression_changed
+
+
+def _get_source_dir(source):
+    """ Get source_dir from file names """
+    source_dir = ''
+    if len(source) > 1:
+        source_dir = source[0]
+        for i in source[1:]:
+            source_dir = common_start(source_dir, i)
+            if source_dir == '':
+                break
+        if not _isdir(source_dir):
+            source_dir, _ = _split(source_dir)
+    return source_dir
+
+
+def _get_file_args(paths):
+    """ Get file/path arguments """
+    if len(paths) == 1:
+        source, target = paths[0], paths[0]
+    elif len(paths) == 2:
+        source, target = paths[0], paths[1]
+    else:
+        target = paths.pop() if _isdir(paths[-1]) else _getcwd()
+        source = paths
+
+    if not isinstance(source, list):
+        if _isdir(source):
+            source = list(Path(source).rglob("*.*"))
+        elif _isfile(source):
+            source = [source]
+        else:
+            raise ValueError('Error in source files')
+
+    source, target = [_abspath(i) for i in source], _abspath(target)
+    source_dir = _get_source_dir(source)
+
+    if _isfile(target):
+        if len(source) > 1:
+            raise ValueError('Target must be a directory')
+
+    return source, source_dir, target
 
 
 def compress_nc(from_file, to_file=None, dec_prec=None, complevel=5):
@@ -53,25 +137,8 @@ def compress_nc(from_file, to_file=None, dec_prec=None, complevel=5):
         to_file += '.tmp'
 
     glob_mae = 0
-    compression_changed = False
     with xr.open_dataset(from_file) as ds:
-
-        for k, v in ds.variables.items():
-            if v.encoding['complevel'] != complevel:
-                compression_changed = True
-                break
-
-        if dp_str in ds.attrs.keys():
-            if ds.attrs[dp_str] is not None and dec_prec is not None:
-                if dec_prec >= ds.attrs[dp_str]:
-                    dec_prec = None
-
-        if dec_prec is not None:
-            compression_changed = True
-
-        if compression_changed:
-            log.info(f'Compressing {from_file}')
-
+        log.debug(f'Compressing {from_file}')
         for k, v in ds.variables.items():
             if k != 'TFLAG':
                 if dec_prec is not None:
@@ -83,28 +150,21 @@ def compress_nc(from_file, to_file=None, dec_prec=None, complevel=5):
                     ds[k].attrs[pm_str] = mae
                     glob_mae = max(glob_mae, mae)
                     log.debug(f'Processing {k}: MAE: {mae}')
-            if compression_changed:
-                ds[k].encoding = encoding
+            ds[k].encoding = encoding
 
         if dec_prec is not None:
             ds.attrs.update({dp_str: dec_prec, pm_str: glob_mae})
 
-    if compression_changed:
-        ds.to_netcdf(to_file)
-        if modify:
-            _remove(from_file)
-            shutil.move(to_file, from_file)
-            log.debug(f'tmp file renamed to {from_file}')
-    else:
-        if not modify:
-            shutil.copy2(from_file, to_file)
-        else:
-            s = {dp_str: dec_prec, 'complevel': complevel}
-            log.info(f'{from_file} is not changed {s}')
+    ds.to_netcdf(to_file)
+    if modify:
+        _remove(from_file)
+        shutil.move(to_file, from_file)
+        log.debug(f'tmp file renamed to {from_file}')
+    log.info(f'Compressed: {from_file}')
 
 
 def _parse_args_():
-    from _helper_functions_ import _create_argparser_
+    from _helper_functions_ import _create_argparser_  # pylint: disable=C0415
     DESCRIPTION = 'Compress cmaq files\n\n' + \
                   'Project: {}\n  Path: {}\nCMAQ\n  Path: {}\n  version: {}'
     DESCRIPTION = DESCRIPTION.format(proj.name, proj.path.proj,
@@ -114,13 +174,13 @@ def _parse_args_():
     p = _create_argparser_(DESCRIPTION, EPILOG)
     p.add_argument('-d', '--dlevel', type=int, required=False, default=5,
                    help="Compression/deflate level between 0-9")
-    p.add_argument('-q', '--quantize', type=int, required=False, default=None,
+    p.add_argument('-q', '--quantize', type=int, required=False, default=2,
                    help="Truncate data in variables to a given decimal \n\
 precision, e.g. -q 2.")
     p.add_argument('-o', '--overwrite', action='store_true', default=False,
                    help='Overwrite if file exist')
-    p.add_argument('SOURCE', help='Source Directory')
-    p.add_argument('TARGET', help='Target Directory')
+    p.add_argument('PATHS', nargs='*', default=_getcwd(),
+                   help='Files/Paths to compress from/to.')
     return p.parse_args()
 
 
@@ -134,25 +194,44 @@ if __name__ == "__main__":
         ch.setFormatter(formatter)
         log.addHandler(ch)
 
-    source, target = a.SOURCE, a.TARGET
     dlevel, dec_precision, overwrite = a.dlevel, a.quantize, a.overwrite
+    source, source_dir, target = _get_file_args(a.PATHS)
 
-    if not _isdir(source):
-        raise ValueError(f"{source} is not a directory")
-
-    source, target = _abspath(source), _abspath(target)
-
-    for f1 in Path(source).rglob("*.[nN][cC]"):
-        f2 = Path(str(f1).replace(source, target))
+    for f1 in source:
+        f2 = target if source_dir == '' else \
+            Path(str(f1).replace(source_dir, target))
         dir2, _ = _split(f2)
         _makedirs(dir2, exist_ok=True)
-        if not overwrite and f2.exists():
-            raise FileExistsError(f"{f2} is exist. Use '--overwrite' to overwrite.")
-        # shutil.copy2(f1, f2)
-        compress_nc(f1, f2, dec_prec=dec_precision, complevel=dlevel)
-        # base = os.path.basename(f)
-        print(dir2, f2)
+        compress = False
+        if _isfile(f1):
+            if not _is_netcdf(f1):
+                if _isfile(f2):
+                    if _cmp(f1, f2):
+                        msg = f"{f1} is identical to target."
+                        log.debug(msg)
+                else:
+                    shutil.copy2(f1, f2)
+                    msg = f"{f1} is not a valid netcdf file. Copied to target."
+                    log.debug(msg)
+                compress = False
+                continue
 
+        if _isfile(f2):
+            if _is_netcdf(f2):
+                compress = _update_is_required(f2, dec_precision, dlevel)
+                if not compress:
+                    log.info(f"{f2} is already compressed.")
+                elif not overwrite:
+                    raise FileExistsError('Use --overwrite to overwrite files')
+            else:
+                shutil.copy2(f1, f2)
+                msg = f"{f1} is not a valid netcdf file. Copied to target."
+                log.debug(msg)
+        else:
+            compress = True
+
+        if compress:
+            compress_nc(f1, f2, dec_prec=dec_precision, complevel=dlevel)
 
 
 # f2 = 'tmp/CCTM_CONC_v532_gcc_cityair_future_wamd_2015_4km_20150102_yedek.nc'
